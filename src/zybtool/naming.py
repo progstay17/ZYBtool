@@ -178,29 +178,20 @@ def build_folder_name(
     field_map = {**DEFAULT_FIELD_MAP, **(cfg.get("field_map") or {})}
     template = validate_template(str(cfg.get("template") or DEFAULT_TEMPLATE))
 
-    # Keep the existing QR contract checks even when the operator customizes the
-    # display template; customization must never weaken verification requirements.
-    branch = _safe_component(payload.get("b"), "b")
-    recorder = _safe_component(payload.get("r"), "r")
-    recorder_number = _safe_component(payload.get("dn"), "dn")
-    activity = _safe_component(payload.get("a"), "a")
-    shift = payload.get("sh")
-    if not re.fullmatch(r"MM[0-9]{2,4}", branch):
-        raise ValueError("Field AITQR 'b' harus berformat MM diikuti 2–4 digit.")
-    if not re.fullmatch(r"ZY[0-9]{3,4}", recorder_number):
-        raise ValueError("Field AITQR 'dn' harus berformat ZY diikuti 3–4 digit.")
-    if not isinstance(shift, int) or isinstance(shift, bool) or shift not in (1, 2, 3):
-        raise ValueError("Field AITQR 'sh' harus bernilai 1, 2, atau 3.")
-
+    # AITQR short keys are profile-defined, not globally fixed. Keep the default
+    # v1 mapping for the standard zyb-recording profile, but let Preferences map
+    # another verified profile's keys (for example qr.l or qr.d) explicitly.
+    # This changes folder naming only; MQ1 decryption and device correlation have
+    # already been performed by the verification pipeline.
     date_path = str(field_map.get("DATE") or "").strip()
     date_raw = _resolve_path(date_path, session, payload) if date_path else capture_date
     values: dict[str, str] = {"DATE": _date_component(date_raw)}
     defaults = {
-        "LOCATION_CODE": branch,
-        "PERSON_NAME": recorder,
-        "DEVICE_ID": recorder_number,
-        "SESSION": str(shift),
-        "ACTIVITY": activity,
+        "LOCATION_CODE": payload.get("b"),
+        "PERSON_NAME": payload.get("r"),
+        "DEVICE_ID": payload.get("dn"),
+        "SESSION": payload.get("sh"),
+        "ACTIVITY": payload.get("a"),
     }
     for token in TOKENS[1:]:
         path = str(field_map.get(token) or "").strip()
