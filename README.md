@@ -1,16 +1,16 @@
 # ZYB Tool
 
-Alat lokal/offline untuk memeriksa recording camera project, mengelompokkan segment berdasarkan bukti, menghasilkan laporan supervisor, menyiapkan salinan terverifikasi, dan pada tahap berikutnya mengunggahnya secara aman ke OSS.
+Alat desktop lokal/offline untuk memeriksa recording camera project, mengelompokkan segment berdasarkan bukti, menghasilkan laporan supervisor, dan menyiapkan output lokal terverifikasi. ZYBTool tidak terhubung ke OSS.
 
 ## Status implementasi
 
 - **M1 — selesai:** discovery, parser, timeline video, grouping konservatif, status, laporan dan CLI.
 - **M2 — fondasi QR/MQ2 terintegrasi:** Metaqr 0.4.0 dipatok ke commit tetap; pemindaian dua crop mata kamera, verifikasi MQ2, allow-list, replay log, serta penyimpanan private key dengan Windows DPAPI.
 - **M2 — belum final:** vektor kontrak final AITQR dan pengujian kamera nyata masih diperlukan. Trust dibatasi maksimum level 2 sampai seluruh korelasi session/kamera/waktu teruji.
-- **M3 — belum diaktifkan:** output copy memerlukan plan, approval, integritas/hash dan manifest yang sah.
-- **M4 — belum diaktifkan:** OSS memerlukan prefix uji yang disetujui dan integrasi kredensial DPAPI.
+- **M3 — fondasi lokal aktif:** plan + konfirmasi operator + copy SHA-256; METADATA_ONLY masuk _UNNAMED. Nama operasional menunggu trust level 3+ dan kontrak AITQR final; manifest saat ini belum ditandatangani.
+- **OSS Transfers — dihapus dari scope:** pola nama folder OSS hanya referensi format; tidak ada credential, bucket browser, upload, atau download.
 
-Lihat IMPLEMENTATION_STATUS.md untuk hasil validasi dan dependensi tahap berikutnya.
+Kontrak field dan pola nama folder untuk AITQR ada di AITQR_INTEGRATION.md. Lihat IMPLEMENTATION_STATUS.md untuk hasil validasi dan dependensi tahap berikutnya.
 
 ## Persyaratan
 
@@ -30,11 +30,11 @@ Script mencari Python 3.12.15 pada lokasi instalasi standar pengguna dan instala
 
 ## Aplikasi desktop
 
-Jalankan halaman Settings tanpa membuka terminal aplikasi:
+Jalankan workspace desktop tanpa membuka terminal aplikasi:
 
     .\run-gui.ps1
 
-Desktop UI pertama berfokus pada **Security & Keys**. Halaman ini menyediakan status decoder key, generate atau import private key X25519 secara tersembunyi, copy public key untuk AITQR, impor allow-list perangkat secara opsional, dan akses ke folder penyimpanan lokal. Trusted Devices tidak wajib untuk membuka atau menjalankan ZYBTool; tanpa allow-list, pemeriksaan metadata/video tetap berjalan tetapi tanda tangan perangkat tidak dianggap tepercaya. Navigasi layar lain masih bertahap dan belum diaktifkan.
+Workspace memiliki Overview, Verify Recordings, Review Queue, Output & Reports, Activity Log, dan Settings. Verifikasi berjalan di background agar UI tetap responsif; laporan JSON/CSV/HTML ditulis ke folder lokal terpisah. Settings menyediakan status decoder key, generate/import private key X25519 secara tersembunyi, copy public key untuk AITQR, impor allow-list perangkat opsional, dan akses folder penyimpanan lokal. Trusted Devices tidak wajib; tanpa allow-list, pemeriksaan metadata/video tetap berjalan tetapi tanda tangan perangkat tidak dianggap tepercaya.
 
 ### Pengaturan kunci decoder
 
@@ -82,7 +82,7 @@ Tes integrasi sampel operasional bersifat opt-in karena file MKV besar tidak dis
 - MQ1 tidak diterima sebagai bukti identitas; mode verifikasi membutuhkan MQ2 + allow-list.
 - QR valid saat ini menaikkan trust sampai level 2, bukan level 3/4; korelasi session dan manifest masih menunggu tes kontrak.
 - Ambiguitas tidak diselesaikan dengan tebakan.
-- Upload tetap nonaktif sampai plan, persetujuan operator, prefix uji dan pemeriksaan overwrite tersedia.
+- ZYBTool tidak mempunyai fitur upload/download atau koneksi OSS. Nama folder OSS hanya referensi konvensi yang field-nya dikonfigurasi pada AITQR.
 - Jangan menaruh AccessKey, Secret, private key, allow-list asli atau data petugas di repository/log.
 
-Lihat PRD.md, ARCHITECTURE.md, DESIGN.md, dan AGENTS.md untuk kontrak produk.
+Lihat PRD.md, ARCHITECTURE.md, DESIGN.md, AITQR_INTEGRATION.md, dan AGENTS.md untuk kontrak produk.

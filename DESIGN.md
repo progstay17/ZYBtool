@@ -2,8 +2,8 @@
 
 **Direction:** Cyber Operations / Field Data Verification  
 **Mood:** black graphite, restrained signal-green, precise instrumentation, industrial software.  
-**Purpose:** desktop application for inspecting, verifying, grouping, reporting and safely preparing camera recordings for OSS.  
-**Status:** Settings desktop slice implemented as the first UI increment; other screens remain design-only and are not represented as available.
+**Purpose:** desktop application for inspecting, verifying, grouping, preparing local output and reporting camera recordings.
+**Status:** Workspace navigation, verification, review, local reports, guarded output copy and Security & Keys settings are implemented. Manifest signing and final trust-level correlation remain gated.
 
 ## 1. Design intent
 
@@ -14,7 +14,7 @@ Priorities, in order:
 2. Is the evidence trustworthy?
 3. What needs operator attention?
 4. What action is safe next?
-5. Has output or upload actually completed?
+5. Has local output actually completed?
 
 Keep the interface dark, calm, information-dense and readable. Green is a functional signal, not wallpaper. Use strong alignment, crisp separators, compact labels and useful tables. No fake telemetry, invented metrics or decorative charts.
 
@@ -69,9 +69,8 @@ Navigation:
 2. Verify Recordings
 3. Review Queue
 4. Output & Reports
-5. OSS Transfers
-6. Activity Log
-7. Settings
+5. Activity Log
+6. Settings
 
 Use explicit labels. Active navigation gets a muted green surface and a narrow green indicator—not a glowing block. Page headers contain title, one-line purpose, breadcrumb where needed and one clear primary action.
 
@@ -82,7 +81,7 @@ Use explicit labels. Active navigation gets a muted green surface and a narrow g
 This is an operational dashboard, not a marketing dashboard.
 
 - Primary action: New verification.
-- Compact real metrics: folders discovered, recordings verified, attention required, upload status. Use actual persisted job data; show an em dash if unavailable.
+- Compact real metrics: folders discovered, recordings verified, attention required, naming profile status. Use actual persisted job data; show an em dash if unavailable.
 - Recent jobs table: source, date, recordings, result, output destination, last activity.
 - Attention queue: actionable items such as AMBIGUOUS, INCOMPLETE, METADATA_MISMATCH and failed transfers.
 - Empty state explains how to start. Never show fabricated sample counts.
@@ -134,15 +133,9 @@ No one-click “fix all” for evidence conflicts.
 - Show copy progress, verification result and skipped items.
 - Supervisor summary first; expandable technical evidence second.
 
-### OSS Transfers
+### Naming reference
 
-Treat upload as a separate controlled stage:
-- Show bucket, endpoint and prefix before starting.
-- Show object count, bytes, measured transfer rate, completed/remaining and retry state only when available.
-- Make resumable status explicit.
-- Upload is not complete until remote size/checksum validation succeeds.
-- Existing-object conflict stops for operator decision. No overwrite by default.
-- Destructive actions are visually isolated and require explicit confirmation.
+OSS is not connected to ZYBTool. Existing folder names are a reference pattern only. The editable source fields and mapping that produce operational names belong in AITQR. ZYBTool validates the signed QR payload and never guesses missing naming values.
 
 ### Activity Log
 
@@ -204,7 +197,7 @@ Each component supports relevant loading, empty, success, warning, error and dis
 - Source data is read-only; show this during source selection and output preview.
 - Explain QR/crypto details without hiding technical audit evidence.
 - A signed device does not prove the identity of the person holding it.
-- Never fabricate device health, upload speed, scan progress or verification counts.
+- Never fabricate device health, transfer speed, scan progress or verification counts.
 
 ## 11. Design acceptance checklist
 
@@ -213,7 +206,7 @@ Each component supports relevant loading, empty, success, warning, error and dis
 - [ ] Supervisor can distinguish verified, warning and rejected recordings at a glance.
 - [ ] Operator can understand why a result is not verified.
 - [ ] Source/output distinction and original folder preservation are unmistakable.
-- [ ] Upload conflicts and destructive actions are hard to trigger accidentally.
+- [ ] No OSS credentials, bucket browser, upload, download or transfer controls exist in ZYBTool.
 - [ ] Tables remain readable at 1280×800 and 1024×700.
 - [ ] No fake data, decorative charts, AI-style gradients or meaningless HUD elements.
 - [ ] Keyboard, contrast, empty, loading and error states are specified.

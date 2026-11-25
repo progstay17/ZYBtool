@@ -1,11 +1,11 @@
 # ZYB Tool — Architecture
 
-Status: **DRAFT arsitektur; fondasi M1/M2 dan irisan pertama desktop Settings sudah diimplementasikan secara lokal** · 2026-11-25. Legenda: **[F]** fakta terverifikasi · **[A]** asumsi · **[?]** belum terverifikasi.
+Status: **M1/M2 pipeline dan workspace desktop aktif; M3 local output foundation aktif dengan manifest unsigned** · 2026-11-25. Legenda: **[F]** fakta terverifikasi · **[A]** asumsi · **[?]** belum terverifikasi.
 Pasangan dokumen: `PRD.md` (kebutuhan, status, aturan bisnis), `AGENTS.md`. Produk QR: `AITQR/ARCHITECTURE.md`.
 
 ## 1. Arsitektur yang direkomendasikan
 
-**Desktop verifier offline (Python) di PC administrator**, dengan CLI dan UI desktop bertahap. Sistem keseluruhan adalah hybrid dua produk: AITQR (web/PWA, HP petugas) menerbitkan QR; ZYB Tool (desktop) memverifikasi, mengelompokkan, melaporkan, menyusun folder, dan mengunggah.
+**Desktop verifier offline (Python) di PC administrator**, dengan CLI dan UI desktop bertahap. Sistem keseluruhan adalah hybrid dua produk: AITQR (web/PWA, HP petugas) menerbitkan QR dan mengonfigurasi field payload; ZYB Tool (desktop) memverifikasi, mengelompokkan, menyiapkan output lokal, dan melaporkan. ZYBTool tidak terhubung ke OSS.
 
 Dasar teknis:
 - Workstation admin memiliki Python, `av` (PyAV), `cv2`, `numpy`; `cryptography` **belum** terpasang [F]. Metaqr (decoder Python) dan ZYWtool juga Python [F].
@@ -34,16 +34,14 @@ evidence lowers the result status; it is never resolved by guessing.
 - Application logs provide start, stop, and restart evidence.
 - Camera sidecars provide crop geometry and capture-format metadata.
 - Public fixtures use small synthetic values and deliberately omit video media.
-### 2.4 Object storage (read-only discovery; upload is not enabled)
+### 2.4 Referensi pola nama folder (tanpa koneksi OSS)
 
 oss://<bucket>/<approved-prefix>/
 └── <project>/<site>/<date>/<operation>/
     ├── session metadata
     └── recording folders and media files
 
-The actual bucket, production prefix, site codes, operator labels, and credentials are
-deployment configuration and are deliberately not documented in this public repository.
-No production destination is configured or used by the current implementation.
+Nama folder yang pernah diamati pada penyimpanan OSS hanya dipakai sebagai referensi pola penamaan. ZYBTool tidak menyimpan kredensial OSS, tidak melakukan listing bucket, dan tidak melakukan upload/download. Field sumber dan nilai yang membentuk nama operasional dikonfigurasi di AITQR lalu dikirim melalui payload QR.
 ## 3. Modul dan tanggung jawab
 
 Paket `zybtool`; semua modul inti **fungsi murni atas dataclass** (I/O dipisah) agar dapat diuji sendiri.
@@ -59,15 +57,14 @@ Paket `zybtool`; semua modul inti **fungsi murni atas dataclass** (I/O dipisah) 
 | `integrity` | SHA-256 streaming, manifest, tanda tangan/verifikasi manifest. | — |
 | `status` | Fungsi keputusan: bukti → status + alasan + level. | semua bukti |
 | `report` | JSON kanonik; render HTML/CSV. | `status` |
-| `organize` | Rencana (dry-run) dan penyalinan ke `ZYB_Output/` dengan verifikasi hash. | `integrity` |
-| `ossup` | Uploader dengan `ossutil`; status upload. | `integrity` |
+| `output` | Plan lokal, copy dengan konfirmasi, pelestarian struktur, SHA-256, konflik tanpa overwrite. | `report`, `integrity` |
 | `cli` | Orkestrasi dan antarmuka. | semua |
 
 ## 4. Aliran data
 
 Setiap tahap menulis artefak JSON di `zyb_work/<run_id>/` (atomik: `.tmp` lalu rename); tahap berikutnya hanya membaca artefak. Rerun deterministik dan dapat diulang per tahap.
 
-`inventory.json` → `groups.json` → `verification.json` → `manifest.json` + `manifest.sig` → `report.json` → `plan.json` → `upload_state.json`.
+`inventory.json` → `groups.json` → `verification.json` → `manifest.json` + `manifest.sig` → `report.json` → `output_plan.json`.
 
 ```mermaid
 sequenceDiagram
@@ -92,21 +89,10 @@ sequenceDiagram
   CLI-->>Admin: report.json (status + alasan)
 ```
 
-```mermaid
-sequenceDiagram
-  actor Admin
-  participant O as organize
-  participant U as ossup
-  participant S as OSS
-  Admin->>O: setujui plan.json
-  O->>O: salin + cek hash (sumber tidak berubah)
-  Admin->>U: setujui upload
-  U->>S: ls tujuan (read-only)
-  U->>U: tujuan ada? sama → skip, beda → STOP
-  U->>S: cp resumable (checkpoint)
-  U->>S: stat: size + CRC64 + meta sha256
-  U-->>Admin: UPLOADED_VERIFIED / gagal + alasan
-```
+Output preparation is local-only: the operator reviews a plan, the application copies
+files without renaming original recording folders, verifies SHA-256, and records the
+result. There is no OSS transfer stage.
+
 
 ## 5. Model data (ringkas)
 
@@ -203,7 +189,7 @@ flowchart TD
   M -- >1 --> X[AMBIGUOUS]
 ```
 
-## 9. Output structure and object storage
+## 9. Output structure and naming reference
 
 The original recording_primary_* folder and its contents are never renamed. Any
 operational wrapper is a new parent folder.
@@ -214,10 +200,7 @@ Operational names are derived only from verified payload fields. Recordings with
 trusted QR are not assigned an automatic operational name. Destination conflicts stop
 the operation; automatic suffixes and overwrites are forbidden.
 
-The storage bucket, production prefix, site labels, credentials, and deployment topology
-are private configuration and intentionally omitted from this public repository.
-The uploader is not implemented or enabled. Any future upload implementation must be
-tested only against an explicitly approved non-production destination.
+Nama operasional mengikuti pola referensi yang ditemukan pada folder OSS, tetapi ZYBTool tidak mengakses OSS. AITQR menjadi tempat konfigurasi field yang menghasilkan komponen nama tersebut. ZYBTool hanya memverifikasi payload QR dan menyusun hasil lokal sesuai kontrak yang disepakati.
 ## 10. Tingkat kepercayaan dan threat model
 
 | Level | Bukti | Membuktikan | **Tidak** membuktikan |
@@ -239,9 +222,9 @@ Tidak ada level yang membuktikan identitas orang pemegang kamera; yang dibuktika
 | Durasi dipalsukan | Timeline mkv sebagai dasar | Seperti di atas |
 | Device tak terdaftar | Allowlist `UNKNOWN_DEVICE` | Allowlist belum bertanda tangan (roadmap) |
 | Kunci privat bocor | Decoder: rotasi + rekripsi QR baru. Device signing: `revoked` di allowlist | Token lama sebelum revoke |
-| File diganti setelah verifikasi | Hash di manifest dicek ulang sebelum organize dan upload | Penggantian sebelum verifikasi |
+| File diganti setelah verifikasi | Hash di manifest dicek ulang sebelum menyiapkan output lokal | Penggantian sebelum verifikasi |
 | Segment hilang/tertukar | Urutan bukti, kontinuitas, hash, `INCOMPLETE`/`AMBIGUOUS` | Penghilangan segment akhir tanpa jejak |
-| Upload gagal/putus | Resumable, verifikasi pascaunggah, state file | — |
+| Format nama operasional tidak konsisten | Validasi field payload dan tampilkan alasan; jangan menebak nilai yang hilang | Operator memperbaiki konfigurasi AITQR |
 | Akses ke shell kamera | Tidak terdeteksi (kamera tidak menandatangani) | Batas Level 4 |
 
 ## 11. Deployment dan pengujian
@@ -253,7 +236,7 @@ Tidak ada level yang membuktikan identitas orang pemegang kamera; yang dibuktika
 - **Golden** untuk sampel 1 dan 2 (AC-01, AC-02) — metadata saja; mkv besar hanya untuk tes integrasi lokal (`@integration`, path lewat variabel lingkungan).
 - **Video sintetis kecil** (PyAV) dengan PTS dan QR yang diketahui (vektor uji Metaqr/AITQR).
 - **Properti** untuk `grouper`: invarian urutan input, tidak pernah menggabung device berbeda, tidak ada hasil bergantung nama file.
-- **Kegagalan:** matikan proses saat salin/upload; ulangi → hasil identik (AC-07, AC-08).
+- **Kegagalan:** matikan proses saat salin output lokal; ulangi → hasil identik (AC-07).
 - **Kontrak** dengan AITQR (AC-11) dan CI.
 - **Performa** hashing/scan file 4 GB [?] diukur di PC admin.
 
@@ -280,6 +263,6 @@ Keputusan: sistem hybrid dua produk; ZYB Tool desktop. Integrasi jaringan/API pe
 - Whether other deployments use the same primary-folder layout and whether downstream consumers accept the additional folder level.
 - Sumber waktu jam kamera (RTC/NTP) dan drift terhadap jam HP.
 - Semantik konkurensi replay log Metaqr; kompatibilitas `cryptography` di Python 3.14.
-- Flag ossutil 2.x untuk larangan overwrite, metadata kustom, checkpoint, CRC64.
+- Keselarasan field penamaan operasional antara QR AITQR dan nama folder output.
 - Format kamera selain `stereo` (wrists/gloves/bands).
 - Kemampuan membaca QR dari kamera nyata pada jarak/ukuran operasional.

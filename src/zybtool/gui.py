@@ -7,6 +7,7 @@ import contextlib
 import os
 import subprocess
 import tkinter as tk
+from functools import partial
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Any
@@ -21,6 +22,7 @@ from zybtool.settings import (
     set_decoder_private_key,
     settings_status,
 )
+from zybtool.workspace import WorkspaceMixin
 
 BG = "#080D0B"
 SIDEBAR = "#0E1511"
@@ -39,8 +41,8 @@ FONT = "Segoe UI"
 MONO = "Consolas"
 
 
-class ZYBToolApp:
-    """Small desktop shell focused on the implemented Settings workflow."""
+class ZYBToolApp(WorkspaceMixin):
+    """ZYBTool desktop shell with functional verification and reporting workspace."""
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -61,6 +63,7 @@ class ZYBToolApp:
         self.copy_button: tk.Button | None = None
         self.remove_button: tk.Button | None = None
         self.public_entry: tk.Entry | None = None
+        self._init_workspace()
         self._build_styles()
         self._build_shell()
         self.refresh()
@@ -98,14 +101,14 @@ class ZYBToolApp:
         )
 
         nav_items = [
-            ("Overview", False),
-            ("Verify Recordings", False),
-            ("Review Queue", False),
-            ("Output & Reports", False),
-            ("OSS Transfers", False),
-            ("Activity Log", False),
+            "Overview",
+            "Verify Recordings",
+            "Review Queue",
+            "Output & Reports",
+            "Activity Log",
+            "Settings",
         ]
-        for label, enabled in nav_items:
+        for label in nav_items:
             button = tk.Button(
                 sidebar,
                 text=f"   {label}",
@@ -115,29 +118,15 @@ class ZYBToolApp:
                 padx=12,
                 pady=11,
                 bg=SIDEBAR,
-                fg=SECONDARY if enabled else MUTED,
+                fg=SECONDARY,
                 activebackground=SURFACE_HOVER,
                 activeforeground=TEXT,
-                state="normal" if enabled else "disabled",
-                disabledforeground="#526157",
                 font=(FONT, 10),
-                cursor="arrow",
+                cursor="hand2",
+                command=partial(self.show_page, label),
             )
             button.pack(fill="x", padx=12, pady=1)
-
-        selected = tk.Frame(sidebar, bg=SURFACE_HOVER)
-        selected.pack(fill="x", padx=12, pady=(14, 1))
-        tk.Frame(selected, bg=GREEN, width=3).pack(side="left", fill="y")
-        tk.Label(
-            selected,
-            text="   Settings",
-            anchor="w",
-            padx=9,
-            pady=11,
-            bg=SURFACE_HOVER,
-            fg=GREEN,
-            font=(FONT, 10, "bold"),
-        ).pack(side="left", fill="x", expand=True)
+            self.nav_buttons[label] = button
 
         tk.Frame(sidebar, bg=LINE, height=1).pack(side="bottom", fill="x", padx=16, pady=(0, 14))
         tk.Label(
@@ -154,7 +143,7 @@ class ZYBToolApp:
         topbar = tk.Frame(self.root, bg=BG, height=62)
         topbar.grid(row=0, column=1, sticky="ew")
         topbar.grid_propagate(False)
-        tk.Label(topbar, text="ZYB TOOL  /  SETTINGS", bg=BG, fg=MUTED, font=(MONO, 9)).pack(
+        tk.Label(topbar, text="ZYB TOOL  /  LOCAL WORKSPACE", bg=BG, fg=MUTED, font=(MONO, 9)).pack(
             side="left", padx=28, pady=22
         )
         tk.Label(
@@ -191,7 +180,7 @@ class ZYBToolApp:
             "<MouseWheel>", lambda event: canvas.yview_scroll(int(-event.delta / 120), "units")
         )
 
-        self._build_settings_content()
+        self.show_page("Overview")
 
         statusbar = tk.Frame(self.root, bg=SIDEBAR, height=30)
         statusbar.grid(row=2, column=0, columnspan=2, sticky="ew")
@@ -506,6 +495,7 @@ class ZYBToolApp:
             if not confirmed:
                 return
             public_key = generate_decoder_keypair()
+            self._log_activity("Decoder key generated")
             self.refresh()
             self._set_status("Decoder key berhasil dibuat dan disimpan secara lokal.")
             messagebox.showinfo(
@@ -558,6 +548,7 @@ class ZYBToolApp:
                 )
                 return
             public_key = set_decoder_private_key(first)
+            self._log_activity("Decoder private key imported")
             self.refresh()
             self.public_key_var.set(public_key)
             self._set_status("Private decoder key berhasil diimpor dan dilindungi DPAPI.")
@@ -599,6 +590,7 @@ class ZYBToolApp:
             return
         try:
             destination, count = import_allowlist(Path(selected))
+            self._log_activity(f"Trusted-device allow-list imported ({count} entries)")
             self.refresh()
             self._set_status(f"Allow-list berhasil diimpor: {count} perangkat.")
             messagebox.showinfo(
@@ -629,6 +621,7 @@ class ZYBToolApp:
             return
         try:
             remove_decoder_private_key()
+            self._log_activity("Decoder key removed", "WARNING")
             self.refresh()
             self._set_status("Decoder key lokal telah dihapus.")
         except Exception as exc:

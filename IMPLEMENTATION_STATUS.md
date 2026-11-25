@@ -54,33 +54,42 @@ Environment: Python 3.12.15, PyAV 19.0.2, Metaqr 0.4.0, OpenCV reader, NumPy, Ru
 
 ## M3 — local output preparation
 
-Not enabled. It must preserve every recording_primary_* name and byte, write a reviewed plan, copy (never move), verify SHA-256, stop on conflicts and require operator approval. Manifest signing and output/OSS structure decisions must be resolved first.
+Implemented foundation:
+- Reviewed plan and explicit operator confirmation before copy.
+- METADATA_ONLY recordings are copied under _UNNAMED/<recording-id>; no invented operational name.
+- Operational names are generated only from a valid QR payload at trust level 3+ and the configured AITQR fields; all other uncertain/invalid results are blocked.
+- Original source folders are read-only; directory names and file bytes are preserved. Symlinks and special files are rejected.
+- SHA-256 is streamed before and after copy; source is re-hashed to detect changes. Existing/non-empty destinations and file collisions stop the operation; no overwrite.
+- Atomic staging directory and local manifest with per-file hashes.
 
-## M4 — OSS upload
+Remaining before production: trust level 3+ correlations, final shared AITQR vectors, administrator manifest signature, and validation of the downstream folder layout. The local manifest is explicitly marked unsigned.
 
-Not enabled and not tested against OSS. Requires an explicitly approved test bucket/prefix and secure child-process credential integration with the existing DPAPI profile. No production prefix has been touched.
+## OSS integration — out of scope
 
-## Desktop UI — first Settings slice
+ZYBTool has no OSS credentials, bucket listing, upload, download, sync or transfer functionality. OSS folder names are a naming-pattern reference only. AITQR owns the configurable source fields and emits the QR payload; ZYBTool validates that payload.
+
+## Desktop UI — workspace foundation
 
 Implemented locally:
+- Functional Overview, Verify Recordings (background scan), Review Queue, Output & Reports (local JSON/CSV/HTML), Activity Log and Settings navigation.
 - A native Windows desktop shell using the Python standard-library Tkinter; no additional GUI package was added.
 - Dark graphite / restrained signal-green styling aligned with DESIGN.md.
 - Security & Keys page: decoder key state, public key display and clipboard copy, one-time key generation, concealed two-entry private-key recovery import, optional allow-list JSON import, trusted-device count, local storage location and folder access.
 - Trusted Devices is explicitly optional: no pairing is required to launch or use ZYBTool. If no allow-list is configured, QR signature checks are skipped while the normal metadata/video verification pipeline continues; no untrusted signer is treated as verified.
 - Existing decoder key is never regenerated from the normal UI. The generate action is disabled after setup; key removal requires a warning that old QR may become undecryptable.
 - `run-gui.ps1` launches the app without a console window; `zybtool-gui` is also registered as a project entry point.
-- The other navigation items are intentionally disabled and are not presented as implemented screens.
+- All workspace navigation pages are enabled; verification runs in a background worker and report actions open local artifacts.
 
 Validation on local Windows workstation (2026-11-25):
 - Ruff check: passed; Ruff format check: passed.
-- mypy: no issues in 15 source modules.
-- Latest unit/synthetic suite: 23 passed, 1 optional external-folder integration test skipped (no `ZYB_SAMPLES_DIR` was set for this run).
+- mypy: no issues in 17 source modules.
+- Latest unit/synthetic suite: 26 passed, 1 optional external-folder integration test skipped (no `ZYB_SAMPLES_DIR` was set for this run).
 - Tkinter GUI self-test: passed (Tk 8.6); local settings status read successfully without generating a production decoder key.
 - Desktop launch via `run-gui.ps1`: a `ZYBTool` window was observed running from the project environment.
 - Regression: decoder key generation and `set_decoder_private_key` both refuse to replace an existing key.
 - Latest wheel before public-fixture sanitization: `dist/zybtool-0.1.0-py3-none-any.whl`, 33,481 bytes; verified to contain `zybtool/gui.py` and the `zybtool-gui` console entry point. SHA-256: `f712c8de626b4f459c49bbb35fe1275d1e38664847e210c655650c2755e6f242`.
 
-A standalone Windows x64 portable folder + ZIP is built with PyInstaller; the GUI executable was smoke-tested on the local workstation. Release v0.1.1 adds the Settings private-key import recovery flow.
+A standalone Windows x64 portable folder + ZIP is built with PyInstaller; the GUI executable was smoke-tested on the local workstation. Release v0.1.1 adds the Settings private-key import recovery flow. Workspace navigation, local reports and guarded local output-copy workflow are in the unreleased 0.2.0 development build.
 
 ## Project boundary
 

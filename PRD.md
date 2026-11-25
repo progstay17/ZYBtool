@@ -1,10 +1,10 @@
 # ZYB Tool — Product Requirements Document
 
-Status: **DRAFT produk** · Tanggal: 2026-11-25 · Implementasi M1/M2 dan desktop Settings telah diizinkan; tahap M3/M4 tetap belum aktif.
+Status: **MVP desktop berjalan** · Tanggal: 2026-11-25 · M1/M2 pipeline dan workspace UI aktif; fondasi copy lokal M3 aktif dengan penamaan operasional tetap digate sampai kontrak AITQR final. Tidak ada fitur OSS Transfers.
 Repo GitHub: `progstay17/ZYBtool` (terpisah dari AITQR).
 
 Legenda: **[F]** fakta terverifikasi dari inspeksi PC/OSS · **[A]** asumsi · **[?]** belum terverifikasi (harus diuji sebelum dipakai).
-Produk ini hanya sisi **verifikasi, pengelompokan, laporan, dan upload**. Pembuat QR adalah produk terpisah: **AITQR** (lihat `AITQR/PRD.md`). Detail teknis ada di `ARCHITECTURE.md`; aturan agent di `AGENTS.md`.
+Produk ini hanya sisi **verifikasi, pengelompokan, persiapan output lokal, dan laporan**. ZYBTool tidak memiliki integrasi OSS. Pembuat QR adalah produk terpisah: **AITQR** (lihat `AITQR/PRD.md`). Detail teknis ada di `ARCHITECTURE.md`; aturan agent di `AGENTS.md`.
 
 ## 1. Problem statement
 
@@ -21,7 +21,7 @@ Produk ini hanya sisi **verifikasi, pengelompokan, laporan, dan upload**. Pembua
 2. Membaca QR MQ2 (Metaqr) yang diterbitkan AITQR dan mengikatnya ke recording yang benar.
 3. Pengelompokan session/segment akurat; ambigu ditandai `AMBIGUOUS`, tidak ditebak.
 4. Durasi dihitung dari bukti video/timestamp, bukan klaim metadata saja.
-5. Keluaran lokal: folder induk operasional baru yang membungkus `recording_primary_*` tanpa mengubahnya, siap diunggah ke OSS secara aman dan idempotent.
+5. Keluaran lokal: folder induk operasional baru yang membungkus `recording_primary_*` tanpa mengubahnya. Tidak ada upload atau koneksi OSS dari ZYBTool.
 6. Laporan untuk supervisor dengan status dan alasan per temuan.
 
 **Non-goals**
@@ -36,7 +36,7 @@ Produk ini hanya sisi **verifikasi, pengelompokan, laporan, dan upload**. Pembua
 
 | Peran | Tugas |
 |---|---|
-| Administrator | Memegang kunci privat decoder, allowlist, dan kunci tanda tangan manifest. Menjalankan verifikasi dan upload di PC. |
+| Administrator | Memegang kunci privat decoder, allowlist, dan kunci tanda tangan manifest. Menjalankan verifikasi dan menyiapkan output lokal di PC. |
 | Supervisor | Membaca laporan dan memutuskan tindak lanjut untuk temuan non-VERIFIED. |
 | Petugas (aktor luar) | Menerbitkan QR lewat AITQR sebelum recording; tidak memakai ZYB Tool. |
 
@@ -53,7 +53,6 @@ flowchart LR
   H --> I[Pengelompokan recording/segment]
   I --> J[Laporan + manifest bertanda tangan]
   J --> K[Salin ke ZYB_Output/ folder operasional]
-  K --> L[Upload OSS resumable + verifikasi]
 ```
 
 ## 5. Kebutuhan fungsional
@@ -70,22 +69,22 @@ flowchart LR
 | FR-08 | Pengelompokan segment ke recording dan ke kamera; urutkan dengan bukti temporal. Ambigu → `AMBIGUOUS`. |
 | FR-09 | Hash SHA-256 semua file dan manifest verifikasi bertanda tangan. |
 | FR-10 | Susun keluaran lokal `ZYB_Output/<operasional>/recording_primary_*/…` (salin, bukan pindah, secara default). |
-| FR-11 | Upload ke OSS: resumable, checksum-aware, idempotent, tanpa duplikasi, tanpa overwrite. |
+| FR-11 | Memvalidasi field payload QR yang dipakai AITQR untuk membentuk pola nama folder operasional. |
 | FR-12 | Laporan per recording dan total (lihat §7) dalam JSON kanonik + tampilan yang bisa dibaca supervisor. |
 
 ## 6. Kebutuhan non-fungsional
 
-- **Keamanan:** kunci privat decoder hanya di PC administrator; kredensial OSS hanya lewat environment proses anak (pola `local encrypted credential profile`), tidak di argv/disk/log.
+- **Keamanan:** kunci privat decoder hanya di PC administrator; tidak ada kredensial OSS di ZYBTool; aplikasi sepenuhnya lokal/offline.
 - **Keamanan data input:** input hanya dibaca (read-only); tidak ada perubahan pada folder sumber.
 - **Performa:** file 4+ GB; hashing/scan streaming, tidak memuat seluruh file ke memori. Target throughput [?] diukur pada PC admin.
 - **Reliabilitas:** setiap tahap dapat diulang tanpa efek samping; hasil deterministik untuk input yang sama.
-- **Offline:** verifikasi sepenuhnya offline; hanya upload yang butuh jaringan.
+- **Offline:** verifikasi dan laporan berjalan sepenuhnya lokal/offline.
 - **Maintainability:** modul independen yang dapat diuji terpisah (`ARCHITECTURE.md` §3).
 - **Privasi:** nama petugas muncul di metadata/laporan; laporan dan log tidak menyertakan kunci/secret.
 
 ## 7. Laporan dan status
 
-Isi laporan: recorder, device, lokasi/aktivitas, tanggal/waktu, jumlah recording, jumlah segment, durasi per recording dan total, status QR/signature, status metadata, status integritas, status pengurutan, status upload OSS, warning/rejection beserta alasan.
+Isi laporan: recorder, device, lokasi/aktivitas, tanggal/waktu, jumlah recording, jumlah segment, durasi per recording dan total, status QR/signature, status metadata, status integritas, status pengurutan, kecocokan field penamaan, warning/rejection beserta alasan.
 
 | Status | Makna |
 |---|---|
@@ -106,15 +105,15 @@ Tingkat kepercayaan (Level 0–4) dan batas pembuktiannya ada di `ARCHITECTURE.m
 ## 8. Aturan bisnis
 
 - **BR-01 (kritis):** nama folder `recording_primary_*` dan seluruh isinya **tidak pernah di-rename**. Nama operasional hanya diterapkan pada folder induk baru.
-- **BR-02:** struktur keluaran: `ZYB_Output/<NAMA_OPERASIONAL>/recording_primary_*/…`. Ini keputusan pemilik produk (2026-11-25). Catatan [F]: di contoh destination storage, isi primary berada langsung di folder operasional tanpa level `recording_primary_*`; kompatibilitas konsumen OSS terhadap struktur baru **[?] harus dikonfirmasi** sebelum upload produksi.
+- **BR-02:** struktur keluaran: `ZYB_Output/<NAMA_OPERASIONAL>/recording_primary_*/…`. Ini keputusan pemilik produk (2026-11-25). Catatan [F]: di contoh destination storage, isi primary berada langsung di folder operasional tanpa level `recording_primary_*`; kompatibilitas sistem hilir terhadap struktur output baru **[?] harus dikonfirmasi** sebelum dipakai operasional.
 - **BR-03:** nama operasional mengikuti pola yang ditemukan di OSS (`yyyymmdd_MM<kode>_<Recorder>_ZY<nnn>_S<n>_<Aktivitas>`, `ARCHITECTURE.md` §9); komponen berasal dari QR yang terverifikasi, bukan dari metadata yang bisa diedit. Recording tanpa QR terverifikasi tidak diberi nama operasional otomatis; ditempatkan di `ZYB_Output/_UNNAMED/` untuk keputusan operator.
 - **BR-04:** QR valid tidak otomatis membuktikan recording asli; harus dikorelasikan dengan kamera, waktu, segment, dan hash.
 - **BR-05:** segment tanpa QR tidak otomatis recording baru; dicocokkan lewat metadata. Kandidat ganda → `AMBIGUOUS`.
 - **BR-06:** recording dari device/session berbeda tidak digabung hanya karena waktunya berdekatan.
 - **BR-07:** tidak ada status `VERIFIED` dari metadata saja.
 - **BR-08:** tidak ada auto-suffix ` (2)`; bentrokan nama → berhenti dan minta keputusan operator.
-- **BR-09:** upload tidak pernah menimpa objek yang sudah ada.
-- **BR-10:** folder `.live_*` tak terfinalisasi tidak diunggah secara default.
+- **BR-09:** ZYBTool tidak melakukan koneksi ke OSS, tidak membaca bucket, dan tidak mengunggah/mengunduh objek. Pola nama folder yang pernah diamati hanya menjadi referensi format untuk kontrak AITQR.
+- **BR-10:** folder `.live_*` tak terfinalisasi tidak otomatis dimasukkan ke output operasional.
 
 ## 9. Kriteria penerimaan
 
@@ -126,8 +125,8 @@ Tingkat kepercayaan (Level 0–4) dan batas pembuktiannya ada di `ARCHITECTURE.m
 | AC-04 | Token yang sama pada dua segment satu recording → bukan replay; pada dua recording berbeda → `REPLAY_DETECTED`. |
 | AC-05 | `session.json` diubah (durasi/waktu) → `METADATA_MISMATCH` atau `CORRUPTED`, bukan `VERIFIED`. |
 | AC-06 | Keluaran lokal: nama folder primary dan hash SHA-256 setiap file identik dengan sumber; sumber tidak berubah. |
-| AC-07 | Menjalankan ulang pipeline/upload menghasilkan keluaran identik, tanpa duplikat atau sufiks `(n)`. |
-| AC-08 | Upload diputus lalu dilanjutkan: tidak ada objek korup; verifikasi akhir cocok. |
+| AC-07 | Menjalankan ulang pipeline dan persiapan output menghasilkan keluaran identik, tanpa duplikat atau sufiks `(n)`. |
+| AC-08 | Penyalinan lokal dihentikan lalu diulang: sumber tidak berubah dan hasil diverifikasi ulang. |
 | AC-09 | Laporan memuat semua field §7 dan alasan tiap warning/rejection. |
 | AC-10 | Satu folder berisi recording dari 2 device → 2 recording terpisah. |
 | AC-11 | QR dari AITQR (vektor uji bersama) terbaca dan lolos verifikasi pada video uji sintetis. |
@@ -146,7 +145,7 @@ Tingkat kepercayaan (Level 0–4) dan batas pembuktiannya ada di `ARCHITECTURE.m
 | Jam HP vs jam kamera berbeda | `iat` hanya klaim; toleransi konfigurabel, di luar toleransi → warning/mismatch. |
 | Kunci device hilang (diatur AITQR) | Device baru + entri allowlist baru; token lama valid selama entri lama aktif. |
 | File berubah setelah verifikasi | Hash manifest tidak cocok → `CORRUPTED`; wajib verifikasi ulang. |
-| Disk penuh / koneksi putus | Tulis atomik (`.tmp` lalu rename), upload dilanjutkan dari checkpoint. |
+| Disk penuh / koneksi putus | Tulis atomik (`.tmp` lalu rename), penyalinan dapat diulang tanpa mengubah sumber. |
 | Nama operasional bentrok | Berhenti, minta keputusan operator; tidak ada auto-suffix. |
 
 ## 11. MVP dan roadmap
@@ -158,7 +157,6 @@ Rekaman saat ini **belum memuat QR** (konfirmasi pemilik), jadi urutan dimulai d
 | M1 | Discovery, parser metadata, scanner video (timeline/durasi), grouper, laporan. Tanpa QR → `METADATA_ONLY`. | Laporan atas sampel nyata. |
 | M2 | Scanner QR + verifikasi MQ2 (vektor uji Metaqr/AITQR) + korelasi + manifest bertanda tangan. | Level 3–4. |
 | M3 | Penyusun folder keluaran (salin + verifikasi hash). | `ZYB_Output/`. |
-| M4 | Uploader OSS resumable (diuji di prefix uji yang disetujui). | Status upload. |
 | Roadmap | Allowlist bertanda tangan, rotasi kunci decoder, antarmuka supervisor, integrasi API perangkat (bila protokol terbukti). | — |
 
 Ketergantungan: M2 butuh rilis awal AITQR (atau vektor uji sintetis) untuk QR nyata.
@@ -172,5 +170,5 @@ Ketergantungan: M2 butuh rilis awal AITQR (atau vektor uji sintetis) untuk QR ny
 | D3 | Template/normalisasi nama operasional (location suffix, ejaan, panjang nama). | Variasi nyata di OSS. |
 | D4 | Salin vs pindah ke `ZYB_Output`. | Default: salin. |
 | D5 | Toleransi selisih `iat` terhadap waktu kamera. | Konfigurabel. |
-| D6 | Prefix OSS uji yang boleh dipakai untuk uji upload; production prefix (configured privately at deployment). | Tanpa persetujuan, tidak ada upload. |
+| D6 | Kontrak akhir pemetaan field AITQR ke nama folder operasional. | Dikonfigurasi pada AITQR, bukan melalui koneksi OSS dari ZYBTool. |
 | D7 | Nama repo GitHub. | Usulan `ZYBTool`. |
