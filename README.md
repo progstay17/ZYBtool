@@ -34,7 +34,7 @@ Jalankan halaman Settings tanpa membuka terminal aplikasi:
 
     .\run-gui.ps1
 
-Desktop UI pertama berfokus pada **Security & Keys**. Halaman ini menyediakan status decoder key, generate pasangan X25519, copy public key untuk AITQR, impor allow-list perangkat secara opsional, dan akses ke folder penyimpanan lokal. Trusted Devices tidak wajib untuk membuka atau menjalankan ZYBTool; tanpa allow-list, pemeriksaan metadata/video tetap berjalan tetapi tanda tangan perangkat tidak dianggap tepercaya. Navigasi layar lain masih bertahap dan belum diaktifkan.
+Desktop UI pertama berfokus pada **Security & Keys**. Halaman ini menyediakan status decoder key, generate atau import private key X25519 secara tersembunyi, copy public key untuk AITQR, impor allow-list perangkat secara opsional, dan akses ke folder penyimpanan lokal. Trusted Devices tidak wajib untuk membuka atau menjalankan ZYBTool; tanpa allow-list, pemeriksaan metadata/video tetap berjalan tetapi tanda tangan perangkat tidak dianggap tepercaya. Navigasi layar lain masih bertahap dan belum diaktifkan.
 
 ### Pengaturan kunci decoder
 

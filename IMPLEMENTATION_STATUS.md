@@ -65,7 +65,7 @@ Not enabled and not tested against OSS. Requires an explicitly approved test buc
 Implemented locally:
 - A native Windows desktop shell using the Python standard-library Tkinter; no additional GUI package was added.
 - Dark graphite / restrained signal-green styling aligned with DESIGN.md.
-- Security & Keys page: decoder key state, public key display and clipboard copy, one-time key generation, optional allow-list JSON import, trusted-device count, local storage location and folder access.
+- Security & Keys page: decoder key state, public key display and clipboard copy, one-time key generation, concealed two-entry private-key recovery import, optional allow-list JSON import, trusted-device count, local storage location and folder access.
 - Trusted Devices is explicitly optional: no pairing is required to launch or use ZYBTool. If no allow-list is configured, QR signature checks are skipped while the normal metadata/video verification pipeline continues; no untrusted signer is treated as verified.
 - Existing decoder key is never regenerated from the normal UI. The generate action is disabled after setup; key removal requires a warning that old QR may become undecryptable.
 - `run-gui.ps1` launches the app without a console window; `zybtool-gui` is also registered as a project entry point.
@@ -80,7 +80,7 @@ Validation on local Windows workstation (2026-11-25):
 - Regression: decoder key generation and `set_decoder_private_key` both refuse to replace an existing key.
 - Latest wheel before public-fixture sanitization: `dist/zybtool-0.1.0-py3-none-any.whl`, 33,481 bytes; verified to contain `zybtool/gui.py` and the `zybtool-gui` console entry point. SHA-256: `f712c8de626b4f459c49bbb35fe1275d1e38664847e210c655650c2755e6f242`.
 
-A standalone portable build is still not delivered.
+A standalone Windows x64 portable folder + ZIP is built with PyInstaller; the GUI executable was smoke-tested on the local workstation. Release v0.1.1 adds the Settings private-key import recovery flow.
 
 ## Project boundary
 

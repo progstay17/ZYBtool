@@ -8,7 +8,7 @@ import os
 import subprocess
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Any
 
 from zybtool import __version__
@@ -18,6 +18,7 @@ from zybtool.settings import (
     generate_decoder_keypair,
     import_allowlist,
     remove_decoder_private_key,
+    set_decoder_private_key,
     settings_status,
 )
 
@@ -56,6 +57,7 @@ class ZYBToolApp:
         self.allowlist_detail_var = tk.StringVar(value="")
         self.storage_var = tk.StringVar(value=str(data_dir()))
         self.generate_button: tk.Button | None = None
+        self.import_button: tk.Button | None = None
         self.copy_button: tk.Button | None = None
         self.remove_button: tk.Button | None = None
         self.public_entry: tk.Entry | None = None
@@ -290,6 +292,10 @@ class ZYBToolApp:
             action_row, "Generate decoder key", self.generate_key, primary=True
         )
         self.generate_button.pack(side="left")
+        self.import_button = self._button(
+            action_row, "Import private key", self.import_private_key, primary=False
+        )
+        self.import_button.pack(side="left", padx=(8, 0))
         self.remove_button = self._button(action_row, "Remove key", self.remove_key, danger=True)
         self.remove_button.pack(side="left", padx=(8, 0))
 
@@ -439,6 +445,8 @@ class ZYBToolApp:
                     self.copy_button.configure(state="normal")
                 if self.remove_button is not None:
                     self.remove_button.configure(state="normal")
+                if self.import_button is not None:
+                    self.import_button.configure(state="disabled")
             else:
                 self.public_key_var.set("")
                 self.key_state_var.set("Decoder key belum dibuat")
@@ -454,6 +462,8 @@ class ZYBToolApp:
                     self.copy_button.configure(state="disabled")
                 if self.remove_button is not None:
                     self.remove_button.configure(state="disabled")
+                if self.import_button is not None:
+                    self.import_button.configure(state="normal")
 
             if status["allowlist_configured"]:
                 count = int(status["trusted_devices"])
@@ -509,6 +519,61 @@ class ZYBToolApp:
         except Exception as exc:
             messagebox.showerror("Gagal membuat decoder key", str(exc), parent=self.root)
             self._set_status(f"Gagal membuat decoder key: {exc}", error=True)
+
+    def import_private_key(self) -> None:
+        """Import a recovery X25519 private key without exposing it in the UI."""
+        try:
+            current = settings_status()
+            if current["decoder_key_configured"]:
+                messagebox.showwarning(
+                    "Decoder key sudah tersedia",
+                    "Key yang sudah terpasang tidak dapat ditimpa. Hapus key lama secara "
+                    "eksplisit setelah memastikan backup aman, lalu impor ulang.",
+                    parent=self.root,
+                )
+                self.refresh()
+                return
+            first = simpledialog.askstring(
+                "Import private decoder key",
+                "Masukkan private key X25519 (64 karakter hexadecimal).\n"
+                "Input disembunyikan dan tidak akan ditampilkan kembali:",
+                show="*",
+                parent=self.root,
+            )
+            if first is None:
+                return
+            second = simpledialog.askstring(
+                "Konfirmasi private decoder key",
+                "Masukkan ulang private key untuk memastikan tidak ada kesalahan:",
+                show="*",
+                parent=self.root,
+            )
+            if second is None:
+                return
+            if first.strip() != second.strip():
+                messagebox.showerror(
+                    "Konfirmasi tidak cocok",
+                    "Kedua input private key berbeda. Tidak ada perubahan yang disimpan.",
+                    parent=self.root,
+                )
+                return
+            public_key = set_decoder_private_key(first)
+            self.refresh()
+            self.public_key_var.set(public_key)
+            self._set_status("Private decoder key berhasil diimpor dan dilindungi DPAPI.")
+            messagebox.showinfo(
+                "Private key berhasil diimpor",
+                "Key berhasil divalidasi dan disimpan dengan Windows DPAPI.\n\n"
+                "Public key pasangannya sudah dimuat. Jangan bagikan private key.",
+                parent=self.root,
+            )
+        except Exception as exc:
+            messagebox.showerror(
+                "Import private key gagal",
+                str(exc),
+                parent=self.root,
+            )
+            self._set_status(f"Import private key gagal: {exc}", error=True)
 
     def copy_public_key(self) -> None:
         value = self.public_key_var.get().strip()
