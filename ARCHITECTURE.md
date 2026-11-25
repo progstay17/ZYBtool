@@ -197,7 +197,9 @@ operational wrapper is a new parent folder.
 The native session.json is authoritative. Successfully decrypted MQ1 payload is added as a supplemental zybtool.qr_metadata object after MOVE; native fields are not replaced. Recordings without a decrypted QR remain under _UNNAMED. Destination conflicts stop
 the operation; automatic suffixes and overwrites are forbidden.
 
-Pola folder OSS hanya menjadi referensi. QR bukan pengganti session.json: ZYBTool menyimpan payload MQ1 yang sudah didekripsi sebagai session.json.zybtool.qr_metadata pada output MOVE, menjaga semua properti native. Jika struktur zybtool atau qr_metadata sudah berisi data yang tidak boleh ditimpa, proses berhenti aman. Hash manifest mencatat hash sumber dan hash file hasil enrichment.\n\nFolder naming dikendalikan oleh Preferences lokal: JSON scanner membaca file contoh secara read-only dan mendeteksi nested object/array; mapping token disimpan di profil Windows. Saat Arrange, path mapping dibaca ulang dari session.json native atau payload QR yang telah lolos verifikasi. Template hanya mengubah nama folder induk baru. No Shift menghilangkan token SESSION dari hasil, tanpa mengubah skema QR AITQR.
+Pola folder OSS hanya menjadi referensi. QR bukan pengganti session.json: ZYBTool menyimpan payload MQ1 yang sudah didekripsi sebagai session.json.zybtool.qr_metadata pada output MOVE, menjaga semua properti native. Jika struktur zybtool atau qr_metadata sudah berisi data yang tidak boleh ditimpa, proses berhenti aman. Hash manifest mencatat hash sumber dan hash file hasil enrichment.
+
+Folder naming dikendalikan oleh Preferences lokal: JSON scanner membaca file contoh secara read-only dan mendeteksi nested object/array; mapping token disimpan di profil Windows. Saat Arrange, path mapping dibaca ulang dari session.json native atau payload QR yang telah lolos verifikasi. Template hanya mengubah nama folder induk baru. No Shift menghilangkan token SESSION dari hasil, tanpa mengubah skema QR AITQR.
 ## 10. Tingkat kepercayaan dan threat model
 
 | Level | Bukti | Membuktikan | **Tidak** membuktikan |
