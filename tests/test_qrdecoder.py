@@ -41,9 +41,11 @@ def test_decode_token_rejects_wrong_private_key() -> None:
 def test_decode_token_rejects_non_object_payload() -> None:
     keypair = metaqr.generate_keypair()
     token = metaqr.encode(_payload(), keypair.public)
-    with patch("zybtool.qrdecoder.metaqr.decode", return_value=["not", "an", "object"]):
-        with pytest.raises(ValueError, match="bukan JSON object"):
-            decode_token(token, keypair.private)
+    with (
+        patch("zybtool.qrdecoder.metaqr.decode", return_value=["not", "an", "object"]),
+        pytest.raises(ValueError, match="bukan JSON object"),
+    ):
+        decode_token(token, keypair.private)
 
 
 def test_decode_qr_image_scans_and_decrypts(tmp_path: Path) -> None:
