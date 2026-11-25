@@ -13,12 +13,18 @@ from zybtool.models import (
 from zybtool.output import create_output_plan
 
 
-def _report(source: Path, *, decrypted: bool = False) -> VerificationReport:
+def _report(
+    source: Path,
+    *,
+    decrypted: bool = False,
+    payload: dict[str, object] | None = None,
+) -> VerificationReport:
     qr = (
         QRVerification(
             status=ResultStatus.QR_DECRYPTED,
             token_version=1,
-            payload={"b": "MM12", "r": "Recorder A", "dn": "ZY123", "sh": 2, "a": "BedRoom"},
+            payload=payload
+            or {"b": "MM12", "r": "Recorder A", "dn": "ZY123", "sh": 2, "a": "BedRoom"},
         )
         if decrypted
         else None
@@ -198,3 +204,35 @@ def test_corrupted_recording_is_separated_into_rejected_group(tmp_path: Path) ->
     )
     plan = create_output_plan(report, tmp_path / "ZYB_Output")
     assert plan.items[0].folder_name == "_REJECTED"
+
+
+def test_arrange_maps_profile_defined_aitqr_short_keys(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    (source / "recording_primary_demo").mkdir(parents=True)
+    payload = {
+        "p": "zyb-recording",
+        "pv": 1,
+        "s": "3F30WDDZWKDYPZJD",
+        "c": "testing",
+        "d": "ZY007",
+        "l": "MM3201",
+        "m": "test only",
+        "ss": "5",
+        "t": "Kitchen",
+    }
+    plan = create_output_plan(
+        _report(source, decrypted=True, payload=payload),
+        tmp_path / "ZYB_Output",
+        {
+            "field_map": {
+                "LOCATION_CODE": "qr.l",
+                "PERSON_NAME": "qr.m",
+                "DEVICE_ID": "qr.d",
+                "SESSION": "qr.ss",
+                "ACTIVITY": "qr.t",
+            }
+        },
+    )
+    assert len(plan.items) == 1
+    assert plan.items[0].folder_name == "20261125_MM3201_testonly_ZY007_S5_Kitchen"
+    assert plan.items[0].named is True
