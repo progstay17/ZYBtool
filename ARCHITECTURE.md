@@ -57,7 +57,7 @@ Paket `zybtool`; semua modul inti **fungsi murni atas dataclass** (I/O dipisah) 
 | `integrity` | SHA-256 streaming, manifest, tanda tangan/verifikasi manifest. | — |
 | `status` | Fungsi keputusan: bukti → status + alasan + level. | semua bukti |
 | `report` | JSON kanonik; render HTML/CSV. | `status` |
-| `output` | Plan lokal dan naming; `naming` merender template dari field JSON native dan payload QR terverifikasi; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel. | `report`, `integrity`, `naming` |
+| `naming` | Scanner JSON read-only, nested field mapping, template render, No Shift dan preview. | `session.json`, payload QR terverifikasi |\n| `output` | Plan lokal dan naming; `naming` merender template dari field JSON native dan payload QR terverifikasi; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel. | `report`, `integrity`, `naming` |
 | `cli` | Orkestrasi dan antarmuka. | semua |
 
 ## 4. Aliran data
@@ -199,7 +199,7 @@ the operation; automatic suffixes and overwrites are forbidden.
 
 Pola folder OSS hanya menjadi referensi. QR bukan pengganti session.json: ZYBTool menyimpan payload MQ1 yang sudah didekripsi sebagai session.json.zybtool.qr_metadata pada output MOVE, menjaga semua properti native. Jika struktur zybtool atau qr_metadata sudah berisi data yang tidak boleh ditimpa, proses berhenti aman. Hash manifest mencatat hash sumber dan hash file hasil enrichment.
 
-Folder naming dikendalikan oleh Preferences lokal: JSON scanner membaca file contoh secara read-only dan mendeteksi nested object/array; mapping token disimpan di profil Windows. Saat Arrange, path mapping dibaca ulang dari session.json native atau payload QR yang telah lolos verifikasi. Template hanya mengubah nama folder induk baru. No Shift menghilangkan token SESSION dari hasil, tanpa mengubah skema QR AITQR.
+Folder naming dikendalikan oleh Preferences lokal: JSON scanner membaca `session.json` kamera atau JSON contoh payload QR secara read-only dan mendeteksi nested object/array; mapping token disimpan di profil Windows. Saat Arrange, path mapping dibaca ulang dari session.json native atau payload QR yang telah lolos verifikasi. Template hanya mengubah nama folder induk baru. No Shift menghilangkan token SESSION dari hasil, tanpa mengubah skema QR AITQR.
 ## 10. Tingkat kepercayaan dan threat model
 
 | Level | Bukti | Membuktikan | **Tidak** membuktikan |
