@@ -185,7 +185,9 @@ def build_folder_name(
     if not isinstance(shift, int) or isinstance(shift, bool) or shift not in (1, 2, 3):
         raise ValueError("Field AITQR 'sh' harus bernilai 1, 2, atau 3.")
 
-    values: dict[str, str] = {"DATE": _date_component(capture_date)}
+    date_path = str(field_map.get("DATE") or "").strip()
+    date_raw = _resolve_path(date_path, session, payload) if date_path else capture_date
+    values: dict[str, str] = {"DATE": _date_component(date_raw)}
     defaults = {
         "LOCATION_CODE": branch,
         "PERSON_NAME": recorder,
@@ -196,11 +198,14 @@ def build_folder_name(
     for token in TOKENS[1:]:
         path = str(field_map.get(token) or "").strip()
         raw = _resolve_path(path, session, payload) if path else defaults[token]
+        if token == "SESSION" and raw in (0, "0", "S0", "s0", None, ""):
+            values.pop("SESSION", None)
+            continue
         values[token] = _safe_component(raw, token)
 
     if bool(cfg.get("no_shift")):
         values.pop("SESSION", None)
-    else:
+    elif "SESSION" in values:
         values["SESSION"] = "S" + values["SESSION"]
 
     rendered = template
