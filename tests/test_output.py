@@ -63,6 +63,41 @@ def test_decrypted_payload_generates_operational_folder_name(tmp_path: Path) -> 
     assert plan.items[0].qr_metadata is not None
 
 
+def test_no_shift_arrange_omits_session_token(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    (source / "recording_primary_demo").mkdir(parents=True)
+    plan = create_output_plan(
+        _report(source, decrypted=True),
+        tmp_path / "ZYB_Output",
+        {"no_shift": True},
+    )
+    assert plan.items[0].folder_name == "20261125_MM12_RecorderA_ZY123_BedRoom"
+    assert "S0" not in plan.items[0].folder_name
+
+
+def test_arrange_uses_custom_fields_from_native_session_json(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    recording = source / "recording_primary_demo"
+    recording.mkdir(parents=True)
+    (recording / "session.json").write_text(
+        '{"capture_date":"2026-11-25","site":{"code":"MM99"},"people":{"name":"Recorder B"}}',
+        encoding="utf-8",
+    )
+    plan = create_output_plan(
+        _report(source, decrypted=True),
+        tmp_path / "ZYB_Output",
+        {
+            "template": "{DATE}-{LOCATION_CODE}-{PERSON_NAME}-{DEVICE_ID}-{SESSION}-{ACTIVITY}",
+            "field_map": {
+                "DATE": "capture_date",
+                "LOCATION_CODE": "site.code",
+                "PERSON_NAME": "people.name",
+            },
+        },
+    )
+    assert plan.items[0].folder_name == "20261125-MM99-RecorderB-ZY123-S2-BedRoom"
+
+
 def test_output_conflict_is_never_overwritten(tmp_path: Path) -> None:
     source = tmp_path / "source"
     (source / "recording_primary_demo").mkdir(parents=True)
