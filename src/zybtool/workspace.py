@@ -1209,6 +1209,7 @@ class WorkspaceMixin:
                 )
             except Exception as exc:
                 preview_var.set("Preview belum lengkap: " + str(exc))
+
         template_var.trace_add("write", update_preview)
         no_shift_var.trace_add("write", update_preview)
         for variable in map_vars.values():
