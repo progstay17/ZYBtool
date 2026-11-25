@@ -101,6 +101,7 @@ class ZYBToolApp(WorkspaceMixin):
 
         nav_items = [
             "Overview",
+            "QR Decoder",
             "Verify Recordings",
             "Review Queue",
             "Arrange Folder",

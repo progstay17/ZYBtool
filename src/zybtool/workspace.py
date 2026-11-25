@@ -25,6 +25,7 @@ from zybtool.naming import (
 from zybtool.operations import execute_move_plan, export_excel, undo_move
 from zybtool.output import create_output_plan
 from zybtool.pipeline import run_verification, write_report
+from zybtool.qrdecoder import decode_qr_image
 from zybtool.settings import data_dir
 
 PREFERENCE_DEFAULTS: dict[str, Any] = {
@@ -194,6 +195,7 @@ class WorkspaceMixin:
             child.destroy()
         builders = {
             "Overview": self._page_overview,
+            "QR Decoder": self._page_qr_decoder,
             "Verify Recordings": self._page_verify,
             "Review Queue": self._page_review,
             "Arrange Folder": self._page_arrange,
@@ -1314,3 +1316,186 @@ class WorkspaceMixin:
             tk.Label(
                 panel, text="Belum ada aktivitas.", bg=SURFACE, fg=SECONDARY, font=(FONT, 10)
             ).pack(anchor="w", pady=(14, 0))
+
+    def _page_qr_decoder(self) -> None:
+        """Decode an AITQR MQ1 image or pasted token into a validated JSON preview."""
+        self._header(
+            "QR Decoder",
+            "Scan gambar QR AITQR atau tempel token MQ1. Dekripsi berlangsung lokal dengan private key DPAPI.",
+        )
+        self.qr_payload: dict[str, Any] | None = None
+        self.qr_status_var = tk.StringVar(
+            value="Siap. Pilih gambar QR atau tempel token MQ1."
+        )
+
+        input_panel = self._panel(
+            "INPUT",
+            "Kedua metode menggunakan decoder MQ1 dan validasi payload yang sama.",
+        )
+        input_panel.pack(fill="x", padx=34, pady=(0, 14))
+        columns = tk.Frame(input_panel, bg=SURFACE)
+        columns.pack(fill="both", expand=True, pady=(14, 0))
+        token_column = tk.Frame(columns, bg=SURFACE)
+        token_column.pack(side="left", fill="both", expand=True, padx=(0, 8))
+        image_column = tk.Frame(columns, bg=SURFACE)
+        image_column.pack(side="left", fill="y", padx=(8, 0))
+        tk.Label(
+            token_column, text="PASTE TOKEN MQ1", bg=SURFACE, fg=GREEN,
+            font=(FONT, 9, "bold")
+        ).pack(anchor="w", pady=(0, 7))
+        self.qr_token_text = tk.Text(
+            token_column, height=7, wrap="word", bg="#0A100D", fg=TEXT,
+            insertbackground=GREEN, relief="flat", bd=0, padx=12, pady=10,
+            font=(MONO, 9), highlightthickness=1, highlightbackground=LINE,
+            highlightcolor=GREEN,
+        )
+        self.qr_token_text.pack(fill="both", expand=True)
+        self._button(
+            token_column, "Decrypt token", self._decode_qr_token, primary=True
+        ).pack(anchor="w", pady=(9, 0))
+        tk.Label(
+            image_column, text="SCAN DARI GAMBAR", bg=SURFACE, fg=GREEN,
+            font=(FONT, 9, "bold")
+        ).pack(anchor="w", pady=(0, 7))
+        tk.Label(
+            image_column,
+            text="Pilih file PNG, JPG, JPEG, BMP, atau WebP yang berisi QR AITQR.",
+            bg=SURFACE, fg=SECONDARY, font=(FONT, 9), justify="left",
+            wraplength=220,
+        ).pack(anchor="w", pady=(0, 12))
+        self._button(
+            image_column, "Browse QR image", self._decode_qr_image, primary=False
+        ).pack(anchor="w")
+
+        result_panel = self._panel(
+            "DECRYPTED JSON",
+            "Hanya payload MQ1 zyb-recording/v1 yang lolos validasi ditampilkan sebagai JSON.",
+        )
+        result_panel.pack(fill="both", expand=True, padx=34, pady=(0, 14))
+        tk.Label(
+            result_panel, textvariable=self.qr_status_var, bg=SURFACE,
+            fg=SECONDARY, font=(FONT, 9), anchor="w", justify="left",
+            wraplength=900,
+        ).pack(fill="x", pady=(12, 8))
+        preview_wrap = tk.Frame(result_panel, bg="#0A100D")
+        preview_wrap.pack(fill="both", expand=True)
+        preview_scroll = ttk.Scrollbar(preview_wrap, orient="vertical")
+        preview_scroll.pack(side="right", fill="y")
+        self.qr_json_text = tk.Text(
+            preview_wrap, height=17, wrap="none", bg="#0A100D", fg=GREEN,
+            insertbackground=GREEN, relief="flat", bd=0, padx=14, pady=12,
+            font=(MONO, 9), yscrollcommand=preview_scroll.set,
+            state="disabled",
+        )
+        self.qr_json_text.pack(side="left", fill="both", expand=True)
+        preview_scroll.configure(command=self.qr_json_text.yview)
+        actions = tk.Frame(result_panel, bg=SURFACE)
+        actions.pack(fill="x", pady=(12, 0))
+        self.qr_copy_button = self._button(
+            actions, "Copy JSON", self._copy_qr_json, primary=False
+        )
+        self.qr_copy_button.pack(side="left")
+        self.qr_save_button = self._button(
+            actions, "Save .json", self._save_qr_json, primary=True
+        )
+        self.qr_save_button.pack(side="left", padx=(8, 0))
+        self.qr_copy_button.configure(state="disabled")
+        self.qr_save_button.configure(state="disabled")
+        self._set_status("QR Decoder siap. Private key tidak pernah dikirim keluar perangkat.")
+
+    def _display_qr_payload(self, token: str, payload: dict[str, Any]) -> None:
+        import hashlib
+
+        self.qr_payload = payload
+        rendered = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+        self.qr_json_text.configure(state="normal")
+        self.qr_json_text.delete("1.0", "end")
+        self.qr_json_text.insert("1.0", rendered)
+        self.qr_json_text.configure(state="disabled")
+        token_id = hashlib.sha256(token.encode("ascii")).hexdigest()[:16]
+        self.qr_status_var.set(
+            f"MQ1 berhasil didekripsi dan payload valid. Token ID: {token_id}. "
+            "Identitas pembuat QR tidak diverifikasi oleh MQ1."
+        )
+        self.qr_copy_button.configure(state="normal")
+        self.qr_save_button.configure(state="normal")
+        self._log_activity("AITQR MQ1 token decrypted to JSON")
+        self._set_status("QR MQ1 berhasil didekripsi; JSON siap disalin atau disimpan.")
+
+    def _decode_qr_token(self) -> None:
+        token = self.qr_token_text.get("1.0", "end").strip()
+        if not token:
+            messagebox.showwarning(
+                "Token kosong", "Tempel token MQ1 terlebih dahulu.", parent=self.root
+            )
+            return
+        try:
+            from zybtool.qrdecoder import decode_token_with_saved_key
+
+            payload = decode_token_with_saved_key(token)
+            self._display_qr_payload(token, payload)
+        except Exception as exc:
+            self.qr_payload = None
+            self.qr_status_var.set(f"Dekripsi gagal: {exc}")
+            self.qr_copy_button.configure(state="disabled")
+            self.qr_save_button.configure(state="disabled")
+            self._set_status("Token MQ1 gagal didekripsi atau divalidasi.", error=True)
+            messagebox.showerror("QR Decoder", str(exc), parent=self.root)
+
+    def _decode_qr_image(self) -> None:
+        selected = filedialog.askopenfilename(
+            parent=self.root,
+            title="Pilih gambar QR AITQR",
+            filetypes=[
+                ("QR image", "*.png *.jpg *.jpeg *.bmp *.webp"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not selected:
+            return
+        try:
+            token, payload = decode_qr_image(selected)
+            self.qr_token_text.delete("1.0", "end")
+            self.qr_token_text.insert("1.0", token)
+            self._display_qr_payload(token, payload)
+        except Exception as exc:
+            self.qr_payload = None
+            self.qr_status_var.set(f"Scan/dekripsi gagal: {exc}")
+            self.qr_copy_button.configure(state="disabled")
+            self.qr_save_button.configure(state="disabled")
+            self._set_status("Gambar QR gagal dipindai atau didekripsi.", error=True)
+            messagebox.showerror("QR Decoder", str(exc), parent=self.root)
+
+    def _copy_qr_json(self) -> None:
+        if self.qr_payload is None:
+            return
+        rendered = json.dumps(self.qr_payload, ensure_ascii=False, indent=2)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(rendered)
+        self._set_status("JSON berhasil disalin ke clipboard.")
+
+    def _save_qr_json(self) -> None:
+        if self.qr_payload is None:
+            return
+        selected = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Simpan hasil dekripsi sebagai JSON",
+            defaultextension=".json",
+            initialfile="aitqr-decoded.json",
+            filetypes=[("JSON", "*.json")],
+        )
+        if not selected:
+            return
+        try:
+            Path(selected).expanduser().write_text(
+                json.dumps(self.qr_payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            self._log_activity("Decrypted AITQR JSON exported")
+            self._set_status(f"JSON berhasil disimpan: {selected}")
+            messagebox.showinfo(
+                "JSON tersimpan", f"Hasil dekripsi disimpan ke:\n{selected}", parent=self.root
+            )
+        except OSError as exc:
+            messagebox.showerror("Gagal menyimpan JSON", str(exc), parent=self.root)
+
