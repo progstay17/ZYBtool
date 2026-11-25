@@ -139,7 +139,7 @@ def test_mismatched_payload_is_blocked(tmp_path: Path) -> None:
 
 def test_same_operational_key_shares_zyw_group_folder(tmp_path: Path) -> None:
     source = tmp_path / "source"
-    (source / "recording_primary_001").mkdir(parents=True)
+    (source / "recording_primary_demo").mkdir(parents=True)
     (source / "recording_primary_002").mkdir(parents=True)
     base = _report(source, decrypted=True)
     original = base.recordings[0]
