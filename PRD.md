@@ -1,6 +1,6 @@
 # ZYB Tool — Product Requirements Document
 
-Status: **MVP desktop berjalan** · Tanggal: 2026-11-25 · M1/M2 pipeline dan workspace UI aktif; Arrange MOVE + Excel Export aktif. Penamaan operasional memakai payload MQ1 setelah dekripsi dan korelasi device ID. Tidak ada fitur OSS Transfers.
+Status: **MVP desktop berjalan** · Tanggal: 2026-11-25 · M1/M2 pipeline dan workspace UI aktif; Arrange MOVE + Excel Export aktif; Naming Convention GUI dengan JSON scanner dan No Shift. Nama folder default memakai tanggal capture native dan field payload MQ1 terverifikasi; Preferences dapat memetakan field JSON dan mengubah template tanpa melemahkan verifikasi QR. Tidak ada fitur OSS Transfers.
 Repo GitHub: `progstay17/ZYBtool` (terpisah dari AITQR).
 
 Legenda: **[F]** fakta terverifikasi dari inspeksi PC/OSS · **[A]** asumsi · **[?]** belum terverifikasi (harus diuji sebelum dipakai).
@@ -72,6 +72,8 @@ flowchart LR
 | FR-11 | Setelah QR MQ1 berhasil didekripsi dan device ID cocok, tambahkan metadata QR pada `session.json` di lokasi output setelah MOVE; pertahankan seluruh field native. |
 | FR-12 | Laporan per recording dan total (lihat §7) dalam JSON kanonik + tampilan yang bisa dibaca supervisor. |
 | FR-13 | Excel Export dengan sheet `ZY White`, `Cek File`, `Scan Audit`, `Rekonsiliasi`; pertahankan kolom QC manual dan buat backup saat export ulang. |
+| FR-14 | Preferences menyediakan JSON Variable Scanner, browse file JSON contoh, deteksi nested object/array, mapping field ke token folder, template editor, dan live preview. |
+| FR-15 | Mode No Shift menghilangkan token SESSION dari nama folder sepenuhnya; tidak boleh menghasilkan `S0` atau separator ganda. |
 
 ## 6. Kebutuhan non-fungsional
 
@@ -115,6 +117,8 @@ Tingkat kepercayaan (Level 0–4) dan batas pembuktiannya ada di `ARCHITECTURE.m
 - **BR-08:** tidak ada auto-suffix ` (2)`; bentrokan nama → berhenti dan minta keputusan operator.
 - **BR-09:** ZYBTool tidak melakukan koneksi ke OSS, tidak membaca bucket, dan tidak mengunggah/mengunduh objek. Pola nama folder yang pernah diamati hanya menjadi referensi format untuk kontrak AITQR.
 - **BR-10:** folder `.live_*` tak terfinalisasi tidak otomatis dimasukkan ke output operasional.
+- **BR-11:** template dan mapping hanya mengubah nama folder induk output; tidak mengubah payload QR, hasil verifikasi, metadata native, atau nama recording/subfolder. Mapping dibaca dari JSON sumber dan payload QR yang telah lolos verifikasi.
+- **BR-12:** No Shift menghapus token SESSION dari hasil render. Nilai kosong/0 tidak boleh ditampilkan sebagai `S0`.
 
 ## 9. Kriteria penerimaan
 

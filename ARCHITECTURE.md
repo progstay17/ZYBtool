@@ -57,7 +57,8 @@ Paket `zybtool`; semua modul inti **fungsi murni atas dataclass** (I/O dipisah) 
 | `integrity` | SHA-256 streaming, manifest, tanda tangan/verifikasi manifest. | — |
 | `status` | Fungsi keputusan: bukti → status + alasan + level. | semua bukti |
 | `report` | JSON kanonik; render HTML/CSV. | `status` |
-| `output` | Plan lokal dan naming; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel. | `report`, `integrity` |
+| `naming` | Scanner JSON read-only, nested field mapping, template render, No Shift dan preview. | `session.json`, payload QR terverifikasi |
+| `output` | Plan lokal dan naming; `naming` merender template dari field JSON native dan payload QR terverifikasi; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel. | `report`, `integrity`, `naming` |
 | `cli` | Orkestrasi dan antarmuka. | semua |
 
 ## 4. Aliran data
@@ -198,6 +199,8 @@ The native session.json is authoritative. Successfully decrypted MQ1 payload is 
 the operation; automatic suffixes and overwrites are forbidden.
 
 Pola folder OSS hanya menjadi referensi. QR bukan pengganti session.json: ZYBTool menyimpan payload MQ1 yang sudah didekripsi sebagai session.json.zybtool.qr_metadata pada output MOVE, menjaga semua properti native. Jika struktur zybtool atau qr_metadata sudah berisi data yang tidak boleh ditimpa, proses berhenti aman. Hash manifest mencatat hash sumber dan hash file hasil enrichment.
+
+Folder naming dikendalikan oleh Preferences lokal: JSON scanner membaca `session.json` kamera atau JSON contoh payload QR secara read-only dan mendeteksi nested object/array; mapping token disimpan di profil Windows. Saat Arrange, path mapping dibaca ulang dari session.json native atau payload QR yang telah lolos verifikasi. Template hanya mengubah nama folder induk baru. No Shift menghilangkan token SESSION dari hasil, tanpa mengubah skema QR AITQR.
 ## 10. Tingkat kepercayaan dan threat model
 
 | Level | Bukti | Membuktikan | **Tidak** membuktikan |
@@ -218,7 +221,7 @@ MQ1 memberi kerahasiaan, bukan autentikasi. Siapa pun yang mengetahui public key
 | Kunci privat bocor | Rotasi decoder key dan perbarui public key AITQR | Token lama yang dibuat untuk public key lama |
 | File diganti setelah verifikasi | Hash di manifest dicek ulang sebelum menyiapkan output lokal | Penggantian sebelum verifikasi |
 | Segment hilang/tertukar | Urutan bukti, kontinuitas, hash, `INCOMPLETE`/`AMBIGUOUS` | Penghilangan segment akhir tanpa jejak |
-| Format nama operasional tidak konsisten | Validasi field payload dan tampilkan alasan; jangan menebak nilai yang hilang | Operator memperbaiki konfigurasi AITQR |
+| Format nama operasional tidak konsisten | Preferences menyediakan template dan field mapping; nilai tetap divalidasi dari session.json/payload QR | Salah konfigurasi mapping oleh operator |
 | Akses ke shell kamera | Tidak terdeteksi (kamera tidak menandatangani) | Batas Level 4 |
 
 ## 11. Deployment dan pengujian

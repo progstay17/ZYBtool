@@ -4,7 +4,7 @@ Status: draft v1 — shared implementation agreement still requires deterministi
 
 ## Product boundary
 
-- AITQR owns the operator-facing configuration of the fields used to compose an operational folder name.
+- AITQR owns the source values and validation used to compose the encrypted payload. ZYBTool Preferences owns the local output folder-name template and field mapping; this does not change the QR schema or AITQR payload.
 - AITQR creates an encrypted-only MQ1 QR payload. It receives only the ZYBTool decoder **public** key; MQ1 does not authenticate the sender.
 - ZYBTool owns the QR payload schema and verification rules. It stores the matching decoder **private** key locally using Windows DPAPI.
 - The private decoder key must never be sent to AITQR, placed in a QR, or committed to either repository.
@@ -36,7 +36,7 @@ Observed OSS folder pattern:
 
 `YYYYMMDD_MM<kode>_<Recorder>_ZY<nnn>_S<n>_<Aktivitas>`
 
-ZYBTool follows the same group ordering as ZYWTool: YYYYMMDD_LOCATION_OR_BRANCH_RECORDER_DEVICE_S<SHIFT>_ACTIVITY. For the current AITQR payload, the MM## branch/site code (`b`) fills the location-code slot, followed by recorder (`r`), device number (`dn`), shift (`sh`), and activity (`a`). The descriptive location label (`l`) remains supplemental metadata. Group-name components are normalized with ZYWTool's alphanumeric rule (non-alphanumeric characters are removed). Recording folders with the same group key share one group folder; original recording folder names and their contents remain unchanged. Date is correlated from native recording metadata, never from the workstation clock. A missing or ambiguous required value blocks automatic naming.
+ZYBTool defaults to the same group ordering as ZYWTool: YYYYMMDD_LOCATION_OR_BRANCH_RECORDER_DEVICE_S<SHIFT>_ACTIVITY. Preferences can scan a sample JSON file, map nested fields to the naming tokens, edit token order/separators, preview the result, and enable No Shift to omit SESSION (never `S0`). The default values are date from native `capture_date`, branch/site code (`b`), recorder (`r`), device number (`dn`), shift (`sh`), and activity (`a`); descriptive location (`l`) remains supplemental metadata. The JSON mapping affects only the output wrapper folder name; it cannot bypass QR schema validation, decryption, or device correlation. Group-name components use ZYWTool's alphanumeric normalization. Recording folders with the same group key share one group folder; original recording folder names and contents remain unchanged. Date is correlated from native recording metadata, never from the workstation clock. Missing or ambiguous required values block automatic naming.
 
 ## Key exchange
 

@@ -13,39 +13,80 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 from zybtool.models import ResultStatus
+from zybtool.naming import (
+    DEFAULT_CONFIG,
+    DEFAULT_FIELD_MAP,
+    DEFAULT_TEMPLATE,
+    TOKENS,
+    preview_folder_name,
+    scan_json_file,
+    validate_template,
+)
 from zybtool.operations import execute_move_plan, export_excel, undo_move
 from zybtool.output import create_output_plan
 from zybtool.pipeline import run_verification, write_report
 from zybtool.settings import data_dir
 
-PREFERENCE_DEFAULTS = {
+PREFERENCE_DEFAULTS: dict[str, Any] = {
     "source_root": "",
     "report_root": str(Path.home() / "ZYB_Reports"),
     "excel_root": str(Path.home() / "ZYB_Excel"),
     "organized_root": str(Path.home() / "ZYB_Organized"),
+    "naming": dict(DEFAULT_CONFIG),
 }
 
 
-def load_preferences() -> dict[str, str]:
+def load_preferences() -> dict[str, Any]:
     path = data_dir() / "preferences.json"
     values = dict(PREFERENCE_DEFAULTS)
+    values["naming"] = {**DEFAULT_CONFIG, "field_map": dict(DEFAULT_FIELD_MAP)}
     if path.exists():
         loaded = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(loaded, dict):
             raise ValueError("preferences.json harus berupa object JSON.")
-        for key in values:
+        for key in ("source_root", "report_root", "excel_root", "organized_root"):
             if isinstance(loaded.get(key), str):
                 values[key] = loaded[key].strip()
+        naming_value = loaded.get("naming")
+        if isinstance(naming_value, dict):
+            naming: dict[str, Any] = naming_value
+            stored_map_value = naming.get("field_map")
+            stored_map: dict[str, Any] = (
+                stored_map_value if isinstance(stored_map_value, dict) else {}
+            )
+            values["naming"] = {
+                **values["naming"],
+                "source_json": str(naming.get("source_json") or "").strip(),
+                "template": str(naming.get("template") or DEFAULT_TEMPLATE),
+                "field_map": {
+                    token: str(stored_map.get(token) or DEFAULT_FIELD_MAP[token])
+                    for token in TOKENS
+                },
+                "no_shift": bool(naming.get("no_shift", False)),
+            }
     return values
 
 
-def save_preferences(values: dict[str, str]) -> None:
+def save_preferences(values: dict[str, Any]) -> None:
     path = data_dir() / "preferences.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    clean = {}
-    for key in PREFERENCE_DEFAULTS:
+    clean: dict[str, Any] = {}
+    for key in ("source_root", "report_root", "excel_root", "organized_root"):
         raw = str(values.get(key, "") or "").strip()
         clean[key] = str(Path(raw).expanduser().resolve()) if raw else ""
+    naming_value = values.get("naming")
+    naming: dict[str, Any] = naming_value if isinstance(naming_value, dict) else {}
+    template = validate_template(str(naming.get("template") or DEFAULT_TEMPLATE))
+    field_map_value = naming.get("field_map")
+    field_map: dict[str, Any] = field_map_value if isinstance(field_map_value, dict) else {}
+    clean["naming"] = {
+        "source_json": str(naming.get("source_json") or "").strip(),
+        "template": template,
+        "field_map": {
+            token: str(field_map.get(token) or DEFAULT_FIELD_MAP[token]) for token in TOKENS
+        },
+        "no_shift": bool(naming.get("no_shift", False)),
+    }
     temporary = path.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(clean, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
@@ -94,6 +135,7 @@ class WorkspaceMixin:
         self.current_report: Any = None
         self.report_directory: Path | None = None
         self.preferences = load_preferences()
+        self.naming_preferences = dict(self.preferences.get("naming") or DEFAULT_CONFIG)
         self.source_path = tk.StringVar(value=self.preferences["source_root"])
         self.report_path = tk.StringVar(value=self.preferences["report_root"])
         self.excel_path = tk.StringVar(value=self.preferences["excel_root"])
@@ -738,7 +780,9 @@ class WorkspaceMixin:
             )
             return
         try:
-            plan = create_output_plan(self.current_report, Path(destination))
+            plan = create_output_plan(
+                self.current_report, Path(destination), self.naming_preferences
+            )
         except Exception as exc:
             messagebox.showerror("Output plan gagal", str(exc), parent=self.root)
             return
@@ -897,7 +941,7 @@ class WorkspaceMixin:
     def _page_preferences(self) -> None:
         self._header(
             "Preferences",
-            "Atur lokasi default seperti ZYWTool. Hand Check dan Preview Frames tidak termasuk ZYBTool.",
+            "Atur lokasi workspace dan format nama folder operasional. Scan variabel tersedia khusus di halaman ini.",
         )
         panel = self._panel(
             "Workspace folders",
@@ -905,7 +949,7 @@ class WorkspaceMixin:
         )
         panel.pack(fill="x", padx=34, pady=(0, 14))
         fields = (
-            ("source_root", "Default source folder", "Folder MCAP/recording sumber"),
+            ("source_root", "Default source folder", "Folder recording sumber"),
             ("report_root", "Report output folder", "JSON, CSV, HTML dan inventory"),
             ("excel_root", "Excel output folder", "Workbook otomatis: ZYB_Rekap.xlsx"),
             ("organized_root", "Organized folders", "Tujuan Arrange Folder; MOVE, bukan copy"),
@@ -915,7 +959,13 @@ class WorkspaceMixin:
             row = tk.Frame(panel, bg=SURFACE)
             row.pack(fill="x", pady=(14, 0))
             tk.Label(
-                row, text=label, bg=SURFACE, fg=TEXT, font=(FONT, 9, "bold"), width=22, anchor="w"
+                row,
+                text=label,
+                bg=SURFACE,
+                fg=TEXT,
+                font=(FONT, 9, "bold"),
+                width=22,
+                anchor="w",
             ).pack(side="left")
             variable = tk.StringVar(value=self.preferences.get(key, ""))
             self.preference_vars[key] = variable
@@ -934,18 +984,249 @@ class WorkspaceMixin:
             tk.Label(panel, text=hint, bg=SURFACE, fg=MUTED, font=(FONT, 8)).pack(
                 anchor="w", pady=(3, 0)
             )
+
+        naming = self.naming_preferences
+        naming_panel = self._panel(
+            "Naming Convention",
+            "Browse `session.json` kamera atau JSON contoh payload QR, lalu scan field. Mapping hanya mengatur nama folder output; metadata QR tetap harus lolos verifikasi.",
+        )
+        naming_panel.pack(fill="x", padx=34, pady=(0, 14))
+        tk.Label(
+            naming_panel, text="JSON VARIABLE SCANNER", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")
+        ).pack(anchor="w", pady=(12, 5))
+        source_row = tk.Frame(naming_panel, bg=SURFACE)
+        source_row.pack(fill="x")
+        source_json_var = tk.StringVar(value=str(naming.get("source_json") or ""))
+        tk.Entry(
+            source_row,
+            textvariable=source_json_var,
+            bg="#0A100D",
+            fg=TEXT,
+            insertbackground=TEXT,
+            relief="flat",
+            font=(MONO, 9),
+        ).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
+
+        def browse_json_sample() -> None:
+            selected = filedialog.askopenfilename(
+                parent=self.root,
+                title="Pilih JSON contoh",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            )
+            if selected:
+                source_json_var.set(str(Path(selected).resolve()))
+
+        self._button(source_row, "Browse JSON", browse_json_sample).pack(side="right", padx=(0, 8))
+        detected_fields: list[dict[str, Any]] = []
+        sample_data: Any = None
+        fields_tree = ttk.Treeview(
+            naming_panel, columns=("type", "sample"), show="tree headings", height=5
+        )
+        fields_tree.heading("#0", text="JSON FIELD PATH")
+        fields_tree.heading("type", text="TYPE")
+        fields_tree.heading("sample", text="SAMPLE VALUE")
+        fields_tree.column("#0", width=260, minwidth=150)
+        fields_tree.column("type", width=90, stretch=False)
+        fields_tree.column("sample", width=480)
+        fields_tree.pack(fill="both", expand=True, pady=(10, 4))
+        scan_status = tk.StringVar(value="Belum ada file JSON yang dipindai.")
+        tk.Label(naming_panel, textvariable=scan_status, bg=SURFACE, fg=MUTED, font=(FONT, 8)).pack(
+            anchor="w", pady=(0, 8)
+        )
+        mapping_title = tk.Label(
+            naming_panel, text="VARIABLE MAPPING", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")
+        )
+        mapping_title.pack(anchor="w", pady=(8, 5))
+        tk.Label(
+            naming_panel,
+            text="Default mengambil b, r, dn, sh, a dari payload QR terverifikasi; DATE berasal dari capture_date kamera. Field JSON yang dipilih dapat mengambil nilai dari session.json atau payload QR.",
+            bg=SURFACE,
+            fg=SECONDARY,
+            font=(FONT, 8),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+        map_vars: dict[str, tk.StringVar] = {}
+        map_boxes: dict[str, ttk.Combobox] = {}
+        saved_map_value = naming.get("field_map")
+        saved_map: dict[str, Any] = saved_map_value if isinstance(saved_map_value, dict) else {}
+        auto_label = "(Auto / default)"
+        map_wrap = tk.Frame(naming_panel, bg=SURFACE)
+        map_wrap.pack(fill="x")
+        labels = (
+            ("DATE", "Tanggal"),
+            ("LOCATION_CODE", "Kode lokasi"),
+            ("PERSON_NAME", "Nama recorder"),
+            ("DEVICE_ID", "Device ID"),
+            ("SESSION", "Shift / session"),
+            ("ACTIVITY", "Aktivitas"),
+        )
+        for token, label in labels:
+            row = tk.Frame(map_wrap, bg=SURFACE)
+            row.pack(fill="x", pady=2)
+            tk.Label(
+                row, text=label, bg=SURFACE, fg=TEXT, width=22, anchor="w", font=(FONT, 9)
+            ).pack(side="left")
+            current = str(saved_map.get(token) or DEFAULT_FIELD_MAP[token])
+            variable = tk.StringVar(value=current if current else auto_label)
+            map_vars[token] = variable
+            box = ttk.Combobox(
+                row,
+                textvariable=variable,
+                values=[auto_label, *[v for v in DEFAULT_FIELD_MAP.values() if v]],
+                state="readonly",
+                width=52,
+            )
+            box.pack(side="left", fill="x", expand=True)
+            map_boxes[token] = box
+
+        def refresh_field_choices() -> None:
+            paths = [item["path"] for item in detected_fields]
+            defaults = [value for value in DEFAULT_FIELD_MAP.values() if value]
+            choices = [auto_label, *dict.fromkeys([*defaults, *paths])]
+            for box in map_boxes.values():
+                box.configure(values=choices)
+
+        def scan_json_sample() -> None:
+            nonlocal sample_data
+            try:
+                path = Path(source_json_var.get()).expanduser()
+                detected_fields[:] = scan_json_file(path)
+                sample_data = json.loads(path.read_text(encoding="utf-8-sig"))
+                if isinstance(sample_data, list):
+                    sample_data = next((item for item in sample_data if isinstance(item, dict)), {})
+                for child_id in fields_tree.get_children():
+                    fields_tree.delete(child_id)
+                for field in detected_fields:
+                    rendered = json.dumps(field["sample"], ensure_ascii=False, default=str)
+                    if len(rendered) > 110:
+                        rendered = rendered[:107] + "..."
+                    fields_tree.insert(
+                        "", "end", text=field["path"], values=(field["type"], rendered)
+                    )
+                refresh_field_choices()
+                scan_status.set(
+                    f"{len(detected_fields)} field terdeteksi. Pilih field untuk mapping di bawah."
+                )
+                update_preview()
+            except Exception as exc:
+                sample_data = None
+                messagebox.showerror("JSON Variable Scanner", str(exc), parent=self.root)
+                scan_status.set("Scan gagal. Periksa file JSON.")
+
+        self._button(source_row, "Scan Variables", scan_json_sample, primary=True).pack(
+            side="right"
+        )
+        if source_json_var.get() and Path(source_json_var.get()).is_file():
+            try:
+                detected_fields[:] = scan_json_file(source_json_var.get())
+                sample_data = json.loads(
+                    Path(source_json_var.get()).read_text(encoding="utf-8-sig")
+                )
+                if isinstance(sample_data, list):
+                    sample_data = next((item for item in sample_data if isinstance(item, dict)), {})
+                for item in detected_fields:
+                    rendered = json.dumps(item["sample"], ensure_ascii=False, default=str)
+                    fields_tree.insert(
+                        "",
+                        "end",
+                        text=item["path"],
+                        values=(
+                            item["type"],
+                            rendered[:107] + "..." if len(rendered) > 110 else rendered,
+                        ),
+                    )
+                refresh_field_choices()
+                scan_status.set(f"{len(detected_fields)} field tersimpan dari scan sebelumnya.")
+            except Exception:
+                sample_data = None
+
+        template_row = tk.Frame(naming_panel, bg=SURFACE)
+        template_row.pack(fill="x", pady=(14, 5))
+        tk.Label(
+            naming_panel, text="FOLDER NAME TEMPLATE", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")
+        ).pack(anchor="w")
+        template_var = tk.StringVar(value=str(naming.get("template") or DEFAULT_TEMPLATE))
+        tk.Entry(
+            template_row,
+            textvariable=template_var,
+            bg="#0A100D",
+            fg=TEXT,
+            insertbackground=TEXT,
+            relief="flat",
+            font=(MONO, 9),
+        ).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
+        token_var = tk.StringVar(value="DATE")
+        ttk.Combobox(
+            template_row, textvariable=token_var, values=list(TOKENS), state="readonly", width=18
+        ).pack(side="left", padx=(0, 6))
+
+        def add_token() -> None:
+            current = template_var.get().strip()
+            template_var.set((current + "_" if current else "") + "{" + token_var.get() + "}")
+
+        self._button(template_row, "Add token", add_token).pack(side="right")
+        no_shift_var = tk.BooleanVar(value=bool(naming.get("no_shift", False)))
+        tk.Checkbutton(
+            naming_panel,
+            text="No Shift — hilangkan token SESSION di nama folder; QR tetap divalidasi; jangan tulis S0",
+            variable=no_shift_var,
+            bg=SURFACE,
+            fg=TEXT,
+            activebackground=SURFACE,
+            activeforeground=TEXT,
+            selectcolor="#0A100D",
+            font=(FONT, 9),
+        ).pack(anchor="w", pady=(8, 4))
+        preview_var = tk.StringVar(value="Preview akan muncul setelah file JSON dipindai.")
+        tk.Label(
+            naming_panel,
+            textvariable=preview_var,
+            bg="#0A100D",
+            fg=GREEN,
+            font=(MONO, 9),
+            anchor="w",
+            justify="left",
+            wraplength=900,
+            padx=12,
+            pady=10,
+        ).pack(fill="x", pady=(8, 0))
+
+        def current_naming_config() -> dict[str, Any]:
+            field_map = {}
+            for token, variable in map_vars.items():
+                selected = variable.get()
+                field_map[token] = DEFAULT_FIELD_MAP[token] if selected == auto_label else selected
+            return {
+                "source_json": source_json_var.get().strip(),
+                "template": template_var.get().strip(),
+                "field_map": field_map,
+                "no_shift": no_shift_var.get(),
+            }
+
+        def update_preview(*_args: Any) -> None:
+            if sample_data is None:
+                preview_var.set("Preview akan muncul setelah file JSON dipindai.")
+                return
+            try:
+                preview_var.set(
+                    "PREVIEW  " + preview_folder_name(sample_data, current_naming_config())
+                )
+            except Exception as exc:
+                preview_var.set("Preview belum lengkap: " + str(exc))
+
+        template_var.trace_add("write", update_preview)
+        no_shift_var.trace_add("write", update_preview)
+        for variable in map_vars.values():
+            variable.trace_add("write", update_preview)
+        if sample_data is not None:
+            update_preview()
+
         self._button(panel, "Save Preferences", self._save_preferences, primary=True).pack(
             anchor="w", pady=(18, 0)
         )
-        tk.Label(
-            panel,
-            text="Format grup: YYYYMMDD_LOKASI_NamaRecorder_DEVICE_S<shift>_Aktivitas. Folder sesi asli tetap dipertahankan di dalam grup. Sesi dengan nama grup sama digabung.",
-            bg=SURFACE,
-            fg=SECONDARY,
-            font=(FONT, 9),
-            wraplength=900,
-            justify="left",
-        ).pack(anchor="w", pady=(14, 0))
+        self._naming_config_reader = current_naming_config
+        self._set_status("Preferences siap diatur. JSON scanner hanya berjalan saat diminta.")
 
     def _browse_preference(self, variable: tk.StringVar, title: str) -> None:
         selected = filedialog.askdirectory(parent=self.root, title=title)
@@ -953,8 +1234,17 @@ class WorkspaceMixin:
             variable.set(selected)
 
     def _save_preferences(self) -> None:
-        values = {key: variable.get().strip() for key, variable in self.preference_vars.items()}
-        for _key, value in values.items():
+        values: dict[str, Any] = {
+            key: variable.get().strip() for key, variable in self.preference_vars.items()
+        }
+        try:
+            values["naming"] = self._naming_config_reader()
+            values["naming"]["template"] = validate_template(values["naming"]["template"])
+        except Exception as exc:
+            messagebox.showerror("Naming Convention tidak valid", str(exc), parent=self.root)
+            return
+        for _key in ("source_root", "report_root", "excel_root", "organized_root"):
+            value = values[_key]
             if (
                 value
                 and Path(value).expanduser().exists()
@@ -988,12 +1278,17 @@ class WorkspaceMixin:
             messagebox.showerror("Gagal menyimpan Preferences", str(exc), parent=self.root)
             return
         self.preferences = values
+        self.naming_preferences = dict(values["naming"])
         self.source_path.set(values["source_root"])
         self.report_path.set(values["report_root"])
         self.excel_path.set(values["excel_root"])
         self.output_path.set(values["organized_root"])
         self._set_status("Preferences berhasil disimpan.")
-        messagebox.showinfo("Preferences", "Lokasi folder berhasil disimpan.", parent=self.root)
+        messagebox.showinfo(
+            "Preferences",
+            "Lokasi folder dan Naming Convention berhasil disimpan.",
+            parent=self.root,
+        )
 
     def _page_activity(self) -> None:
         self._header(

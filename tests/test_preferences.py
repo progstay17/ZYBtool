@@ -13,9 +13,25 @@ def test_workspace_preferences_persist_per_windows_profile(tmp_path: Path, monke
         "report_root": str(tmp_path / "reports"),
         "excel_root": str(tmp_path / "excel"),
         "organized_root": str(tmp_path / "organized"),
+        "naming": {
+            "source_json": str(tmp_path / "sample.json"),
+            "template": "{DATE}_{LOCATION_CODE}_{PERSON_NAME}_{DEVICE_ID}_{ACTIVITY}",
+            "field_map": {
+                "DATE": "capture_date",
+                "LOCATION_CODE": "b",
+                "PERSON_NAME": "r",
+                "DEVICE_ID": "dn",
+                "SESSION": "sh",
+                "ACTIVITY": "a",
+            },
+            "no_shift": True,
+        },
     }
     save_preferences(values)
     loaded = load_preferences()
-    assert loaded == {key: str(Path(value).resolve()) for key, value in values.items()}
+    expected = {key: str(Path(value).resolve()) for key, value in values.items() if key != "naming"}
+    expected["naming"] = values["naming"]
+    assert loaded == expected
     document = json.loads((tmp_path / "profile" / "preferences.json").read_text(encoding="utf-8"))
-    assert set(document) == {"source_root", "report_root", "excel_root", "organized_root"}
+    assert set(document) == {"source_root", "report_root", "excel_root", "organized_root", "naming"}
+    assert document["naming"]["no_shift"] is True
