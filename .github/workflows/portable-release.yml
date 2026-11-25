@@ -1,6 +1,7 @@
 name: ZYBTool Portable Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -12,18 +13,23 @@ jobs:
   portable:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
       - name: Install application and packager
+        shell: pwsh
         run: |
+          python -m pip install --upgrade pip
           python -m pip install -e .
           python -m pip install pyinstaller==6.19.0
       - name: Build portable application
+        shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --windowed --onedir --name ZYBTool --paths src --collect-all metaqr --collect-all av --hidden-import zybtool.gui --hidden-import zybtool.settings --hidden-import av src/zybtool/gui.py
+          python -m PyInstaller --noconfirm --clean --windowed --onedir --name ZYBTool --paths src --collect-all metaqr --collect-all av --hidden-import zybtool.gui --hidden-import zybtool.operations --hidden-import zybtool.settings --hidden-import openpyxl --hidden-import av src/zybtool/gui.py
       - name: Add portable instructions and archive
         shell: pwsh
         run: |
@@ -34,7 +40,15 @@ jobs:
         run: |
           if (-not (Test-Path dist/ZYBTool/ZYBTool.exe)) { throw "Portable executable missing" }
           Get-Item dist/ZYBTool/ZYBTool.exe | Format-List Name,Length
+      - name: Upload portable ZIP as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZYBTool-portable-windows-x64
+          path: dist/ZYBTool-portable-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
       - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
