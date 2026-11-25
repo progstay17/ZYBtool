@@ -57,7 +57,8 @@ Paket `zybtool`; semua modul inti **fungsi murni atas dataclass** (I/O dipisah) 
 | `integrity` | SHA-256 streaming, manifest, tanda tangan/verifikasi manifest. | — |
 | `status` | Fungsi keputusan: bukti → status + alasan + level. | semua bukti |
 | `report` | JSON kanonik; render HTML/CSV. | `status` |
-| `naming` | Scanner JSON read-only, nested field mapping, template render, No Shift dan preview. | `session.json`, payload QR terverifikasi |\n| `output` | Plan lokal dan naming; `naming` merender template dari field JSON native dan payload QR terverifikasi; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel. | `report`, `integrity`, `naming` |
+| `naming` | Scanner JSON read-only, nested field mapping, template render, No Shift dan preview. | `session.json`, payload QR terverifikasi |
+| `output` | Plan lokal dan naming; `naming` merender template dari field JSON native dan payload QR terverifikasi; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel. | `report`, `integrity`, `naming` |
 | `cli` | Orkestrasi dan antarmuka. | semua |
 
 ## 4. Aliran data
