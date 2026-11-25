@@ -1010,9 +1010,7 @@ class WorkspaceMixin:
             )
             if selected:
                 source_json_var.set(str(Path(selected).resolve()))
-        self._button(source_row, "Browse JSON", browse_json_sample).pack(
-            side="right", padx=(0, 8)
-        )
+        self._button(source_row, "Browse JSON", browse_json_sample).pack(side="right", padx=(0, 8))
         detected_fields: list[dict[str, Any]] = []
         sample_data: Any = None
         fields_tree = ttk.Treeview(
