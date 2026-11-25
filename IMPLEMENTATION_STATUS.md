@@ -113,3 +113,16 @@ A standalone Windows x64 portable folder + ZIP is built with PyInstaller; the GU
 The earlier MQ2/signature/allow-list implementation notes below are historical and no longer describe the active protocol. AITQR and ZYBTool now use Metaqr MQ1 encrypted-only. ZYBTool always scans the QR window; with no decoder private key it reports QR_DECRYPT_FAILED after detection, and with the matching private key it reports QR_DECRYPTED after payload/device-ID checks. There is no allow-list, per-staff signing key, signer identity, or replay log. MQ1 does not authenticate the QR creator. Settings now provide decoder key generate/import/export, public-key copy, and removal.
 
 Arrange Folder uses MOVE with hash verification, journal and Undo. Excel Export creates ZY White, Cek File, Scan Audit and Rekonsiliasi and preserves manual QC fields. Hand Check and Preview Frames are explicitly out of scope.
+
+
+## Superseding update 2026-11-25 — ZYWTool Arrange and Preferences parity
+
+- Added dedicated Arrange Folder navigation and a Preferences page.
+- Preferences persists default source, report output, Excel output, and Organized Folders paths in the per-user ZYBTool data directory. Preview Frames and Hand Check output preferences remain intentionally absent.
+- Operational group format follows ZYWTool: YYYYMMDD_MMxx_Recorder_ZYxxx_S<shift>_Activity. AITQR b (MM branch/site code) fills the location-code slot; r, dn, sh, and a supply recorder, device number, shift, and activity. Group components use ZYWTool's alphanumeric normalization.
+- Multiple recordings with the same operational key share one group directory; original recording folder names and internal structure are preserved.
+- Existing Organized Folders roots and group folders can be reused. Session-path collisions fail without overwrite. Each MOVE run stores its own plan, unsigned manifest, and Undo journal under .zybtool/runs/<run-id>.
+- QR_DECRYPT_FAILED/METADATA_ONLY go to _UNNAMED; CORRUPTED recordings go to _REJECTED; ambiguous/incomplete/mismatched recordings remain blocked for review.
+- Excel Export writes ZYB_Rekap.xlsx automatically into the configured Excel output folder.
+- Validation on local Windows workstation: Ruff check passed, Ruff format check passed, mypy passed (18 source files), 34 tests passed, 1 optional sample integration test skipped. Hidden Tkinter UI smoke check opened Preferences and Arrange Folder pages successfully. PyInstaller portable executable --self-test passed; ZIP integrity passed.
+- Portable ZIP SHA-256: DB33068AFB4E16C9FAD68751FD884799EEF7D3FFA8710A497CD50B37BF81A397.

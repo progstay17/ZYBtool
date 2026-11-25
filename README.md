@@ -7,7 +7,7 @@ Alat desktop lokal/offline untuk memeriksa recording camera project, mendekripsi
 - **M1 — selesai:** discovery, parser, timeline video, grouping konservatif, status, laporan dan CLI.
 - **M2 - QR MQ1 encrypted-only:** Scan selalu mendeteksi QR pada dua crop mata kamera. Jika private key tersedia, ZYBTool mendekripsi payload MQ1 dan memeriksa device ID terhadap session. Tidak ada signing key petugas, allow-list, atau replay log; MQ1 tidak mengautentikasi pembuat QR.
 - **Trust:** `QR_DECRYPTED` berarti payload berhasil didekripsi dan lolos korelasi dasar (level 1), bukan bukti identitas pengirim.
-- **M3 — fondasi lokal aktif:** Arrange MOVE + konfirmasi operator + verifikasi SHA-256 + jurnal Undo; QR_DECRYPT_FAILED/METADATA_ONLY masuk _UNNAMED. Excel Export menyediakan sheet ZY White, Cek File, Scan Audit, Rekonsiliasi, serta mempertahankan kolom QC manual. Nama operasional diambil dari payload MQ1 yang berhasil didekripsi; manifest saat ini belum ditandatangani.
+- **M3 — fondasi lokal aktif:** Arrange Folder mengikuti grouping ZYWTool: YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas; sesi dengan kunci nama sama berbagi folder grup dan nama folder sesi asli tetap dipertahankan. MOVE mendukung Organized Folder yang sudah berisi grup sebelumnya, verifikasi SHA-256, jurnal Undo per proses, _UNNAMED untuk QR yang belum didekripsi, dan _REJECTED untuk recording CORRUPTED. Excel Export menyediakan sheet ZY White, Cek File, Scan Audit, Rekonsiliasi, serta mempertahankan kolom QC manual.
 - **OSS Transfers — dihapus dari scope:** pola nama folder OSS hanya referensi format; tidak ada credential, bucket browser, upload, atau download.
 
 Kontrak field dan pola nama folder untuk AITQR ada di AITQR_INTEGRATION.md. Lihat IMPLEMENTATION_STATUS.md untuk hasil validasi dan dependensi tahap berikutnya.
@@ -17,7 +17,7 @@ Kontrak field dan pola nama folder untuk AITQR ada di AITQR_INTEGRATION.md. Liha
 - Windows 10/11 x64
 - Python 3.12.15
 - PyAV 19.0.2
-- Metaqr pada commit tetap baae37471201b3ae3477d0cf0dcb8ffd26e4dc76 (termasuk OpenCV reader)
+- Metaqr MQ1 encrypted-only pada commit tetap 4641544f616dcb2758cbedd089521dda9ec87aab (termasuk OpenCV reader)
 - pytest 9.2.0, Ruff 0.17.5 dan mypy 2.4.1 untuk pengembangan
 
 ## Setup di Windows
@@ -34,7 +34,7 @@ Jalankan workspace desktop tanpa membuka terminal aplikasi:
 
     .\run-gui.ps1
 
-Workspace memiliki Overview, Verify Recordings, Review Queue, Output & Reports, Activity Log, dan Settings. Verifikasi berjalan di background agar UI tetap responsif; laporan JSON/CSV/HTML ditulis ke folder lokal terpisah. Settings menyediakan generate/import/export private key X25519, copy public key untuk AITQR, dan akses folder penyimpanan lokal. Tidak ada allow-list atau signing key petugas.
+Workspace memiliki Overview, Verify Recordings, Review Queue, Arrange Folder, Output & Reports, Activity Log, Preferences, dan Settings. Verifikasi berjalan di background agar UI tetap responsif; laporan JSON/CSV/HTML ditulis ke folder lokal terpisah. Settings menyediakan generate/import/export private key X25519, copy public key untuk AITQR, dan akses folder penyimpanan lokal. Tidak ada allow-list atau signing key petugas.
 
 ### Pengaturan kunci decoder
 
@@ -88,8 +88,12 @@ Tes integrasi sampel operasional bersifat opt-in karena file MKV besar tidak dis
 Lihat PRD.md, ARCHITECTURE.md, DESIGN.md, AITQR_INTEGRATION.md, dan AGENTS.md untuk kontrak produk.
 
 
-## Arrange Folder dan Excel Export
+## Arrange Folder, Preferences, dan Excel Export
 
-Arrange Folder memindahkan (MOVE) folder recording ke tujuan yang dipilih, tanpa mengganti nama `recording_primary_*` maupun isi/subfoldernya. Sebelum eksekusi, ZYBTool menampilkan preview, memblokir bentrok/overwrite, memeriksa hash, dan menyimpan `move_journal.json` untuk Undo. Jangan mematikan PC atau mencabut media selama MOVE berjalan.
+Preferences menyediakan folder sumber default, Report output, Excel output, dan Organized Folders. Excel dibuat otomatis sebagai ZYB_Rekap.xlsx; folder tujuan dapat diubah kapan saja tanpa mengubah isi recording. Preview Frames dan Hand Check tidak termasuk scope ZYBTool.
+
+Arrange Folder menggunakan format grup yang sama dengan ZYWTool: YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas, misalnya 20261117_MM12_RecorderA_ZY123_S2_Kitchen. Nama komponen dinormalisasi alfanumerik seperti ZYWTool. Recording dengan kunci grup sama digabung ke folder grup yang sama; nama folder sesi asli dan semua subfoldernya tetap dipertahankan. Sesi CORRUPTED masuk _REJECTED; QR yang belum dapat didekripsi masuk _UNNAMED.
+
+Arrange melakukan MOVE, bukan copy. Folder Organized yang sudah berisi grup sebelumnya dapat digunakan kembali; folder sesi yang bentrok tidak akan ditimpa. Sebelum eksekusi, ZYBTool menampilkan preview dan meminta konfirmasi, memeriksa SHA-256, dan menyimpan jurnal per proses untuk Undo. Jangan mematikan PC atau mencabut media selama MOVE berjalan.
 
 Excel Export menghasilkan workbook empat sheet: ZY White, Cek File, Scan Audit, dan Rekonsiliasi. Saat export ulang, kolom QC/status/supervisor manual dipertahankan dan workbook lama dibuatkan backup bertimestamp. Hand Check dan Preview Frames tidak termasuk scope.

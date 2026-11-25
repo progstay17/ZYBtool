@@ -103,8 +103,10 @@ class ZYBToolApp(WorkspaceMixin):
             "Overview",
             "Verify Recordings",
             "Review Queue",
+            "Arrange Folder",
             "Output & Reports",
             "Activity Log",
+            "Preferences",
             "Settings",
         ]
         for label in nav_items:

@@ -48,7 +48,7 @@ def _tree_hashes(folder: Path) -> dict[str, str]:
 
 
 def execute_move_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
-    """Move source units into a staged output and persist a reversible journal."""
+    """Move recording units into reusable ZYW-style groups; persist a per-run undo journal."""
     if not confirmed:
         raise PermissionError("Persetujuan operator wajib diberikan sebelum MOVE.")
     if not plan.items:
@@ -57,11 +57,12 @@ def execute_move_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
     target = Path(plan.destination).expanduser().resolve()
     if target == source or target in source.parents or source in target.parents:
         raise ValueError("Folder tujuan harus terpisah dari folder sumber.")
-    if target.exists() and (not target.is_dir() or any(target.iterdir())):
-        raise FileExistsError("Folder tujuan tidak kosong; overwrite diblokir.")
+    if target.exists() and not target.is_dir():
+        raise FileExistsError("Path Organized Folders bukan folder.")
     target.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{target.name}.zyb-move-", dir=target.parent))
-    moves: list[dict[str, str]] = []
+    staged_moves: list[dict[str, str]] = []
+    final_moves: list[dict[str, str]] = []
     manifest_files: list[dict[str, Any]] = []
     try:
         for item in plan.items:
@@ -73,27 +74,20 @@ def execute_move_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
                 if not original.is_dir() or original.is_symlink():
                     raise ValueError(f"Unit sumber bukan folder biasa: {relative}")
                 before = _tree_hashes(original)
-                destination = item_root if relative == "." else item_root / relative
-                if destination.exists():
-                    raise FileExistsError(f"Bentrok tujuan MOVE: {destination}")
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(original), str(destination))
-                moves.append({"from": str(original), "to": str(destination)})
-                after = _tree_hashes(destination)
+                staged_destination = item_root if relative == "." else item_root / relative
+                if staged_destination.exists():
+                    raise FileExistsError(
+                        f"Bentrok path recording di staging: {staged_destination}"
+                    )
+                staged_destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(original), str(staged_destination))
+                staged_moves.append({"from": str(original), "to": str(staged_destination)})
+                after = _tree_hashes(staged_destination)
                 if before != after:
                     raise RuntimeError(f"Hash/struktur berubah saat MOVE: {relative}")
-                for rel, digest in sorted(after.items()):
-                    file_path = destination / Path(rel)
-                    manifest_files.append(
-                        {
-                            "path": file_path.relative_to(staging).as_posix(),
-                            "size_bytes": file_path.stat().st_size,
-                            "sha256": digest,
-                        }
-                    )
                 if item.qr_metadata is not None:
                     session_files = sorted(
-                        destination.rglob("session.json"), key=lambda p: str(p).casefold()
+                        staged_destination.rglob("session.json"), key=lambda p: str(p).casefold()
                     )
                     if not session_files:
                         raise ValueError(f"session.json tidak ditemukan setelah MOVE: {relative}")
@@ -109,23 +103,33 @@ def execute_move_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
                             json.dumps(session, ensure_ascii=False, indent=2) + "\n",
                             encoding="utf-8",
                         )
-                        relative_session = session_path.relative_to(staging).as_posix()
-                        entry = next(
-                            row for row in manifest_files if row["path"] == relative_session
-                        )
-                        entry["sha256"] = _sha256(session_path)
-                        entry["size_bytes"] = session_path.stat().st_size
-                        entry["metadata_enriched"] = True
-        journal_moves = [
-            {"from": move["from"], "to": str(target / Path(move["to"]).relative_to(staging))}
-            for move in moves
-        ]
-        journal = {
-            "format": "zybtool-move-journal-v1",
-            "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            "moves": journal_moves,
-            "undone": False,
-        }
+                for rel, digest in sorted(_tree_hashes(staged_destination).items()):
+                    file_path = staged_destination / Path(rel)
+                    manifest_files.append(
+                        {
+                            "path": (
+                                Path(item.folder_name) / Path(relative) / Path(rel)
+                            ).as_posix(),
+                            "size_bytes": file_path.stat().st_size,
+                            "sha256": digest,
+                        }
+                    )
+        # Merge each staged unit into the persistent Organized Folders root.
+        # Existing group folders are reused; existing session paths are never overwritten.
+        for move in staged_moves:
+            staged_path = Path(move["to"])
+            final_path = target / staged_path.relative_to(staging)
+            if final_path.exists():
+                raise FileExistsError(f"Bentrok tujuan MOVE (tidak ada overwrite): {final_path}")
+            expected_hashes = _tree_hashes(staged_path)
+            final_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(staged_path), str(final_path))
+            final_moves.append({"from": move["from"], "to": str(final_path)})
+            if _tree_hashes(final_path) != expected_hashes:
+                raise RuntimeError(f"Verifikasi hash gagal setelah MOVE: {final_path}")
+        run_id = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
+        run_dir = target / ".zybtool" / "runs" / run_id
+        run_dir.mkdir(parents=True, exist_ok=False)
         output_plan = {
             "format": "zybtool-move-plan-v1",
             "source_root": str(source),
@@ -141,12 +145,12 @@ def execute_move_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
             ],
             "blocked": list(plan.blocked),
         }
-        (staging / "output_plan.json").write_text(
-            json.dumps(output_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
-        (staging / "move_journal.json").write_text(
-            json.dumps(journal, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
+        journal = {
+            "format": "zybtool-move-journal-v1",
+            "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "moves": final_moves,
+            "undone": False,
+        }
         manifest = {
             "format": "zybtool-move-manifest-v1",
             "verification_status": "MOVE_COMPLETED_HASH_CHECKED_UNSIGNED",
@@ -157,27 +161,53 @@ def execute_move_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
             "files": manifest_files,
             "blocked": list(plan.blocked),
         }
-        (staging / "manifest.json").write_text(
+        (run_dir / "output_plan.json").write_text(
+            json.dumps(output_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        (run_dir / "move_journal.json").write_text(
+            json.dumps(journal, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        (run_dir / "manifest.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
-        if target.exists():
-            target.rmdir()
-        os.replace(staging, target)
         return target
     except BaseException:
-        # Roll back every completed move in reverse order; never overwrite originals.
-        for move in reversed(moves):
+        # Restore every completed move, including items already merged into Organized Folders.
+        for move in reversed(final_moves):
             old, new = Path(move["from"]), Path(move["to"])
             if new.exists() and not old.exists():
                 old.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(new), str(old))
+        for move in reversed(staged_moves):
+            old, staged = Path(move["from"]), Path(move["to"])
+            if staged.exists() and not old.exists():
+                old.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(staged), str(old))
         shutil.rmtree(staging, ignore_errors=True)
         raise
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 def undo_move(output_folder: Path | str) -> int:
     root = Path(output_folder).resolve(strict=True)
-    journal_path = root / "move_journal.json"
+    run_journals = (
+        sorted(
+            (root / ".zybtool" / "runs").glob("*/move_journal.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if (root / ".zybtool" / "runs").is_dir()
+        else []
+    )
+    journal_path = next(
+        (
+            path
+            for path in run_journals
+            if path.is_file() and not json.loads(path.read_text(encoding="utf-8")).get("undone")
+        ),
+        root / "move_journal.json",
+    )
     if not journal_path.is_file():
         raise FileNotFoundError("Jurnal MOVE tidak ditemukan.")
     journal = json.loads(journal_path.read_text(encoding="utf-8"))

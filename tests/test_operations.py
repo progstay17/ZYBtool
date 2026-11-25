@@ -4,7 +4,14 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from zybtool.models import RecordingResult, ResultStatus, SessionFacts, UnitKind, VerificationReport
+from zybtool.models import (
+    QRVerification,
+    RecordingResult,
+    ResultStatus,
+    SessionFacts,
+    UnitKind,
+    VerificationReport,
+)
 from zybtool.operations import execute_move_plan, export_excel, undo_move
 from zybtool.output import create_output_plan
 
@@ -81,3 +88,60 @@ def test_excel_export_has_zyw_sheets_and_preserves_manual_qc(tmp_path: Path) -> 
     assert workbook["ZY White"].cell(2, 17).value == "Supervisor A"
     assert list(tmp_path.glob("ZYB_Rekap.backup-*.xlsx"))
     workbook.close()
+
+
+def test_arrange_merges_same_zyw_group_and_undoes_runs_individually(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    first = source / "recording_primary_first"
+    first.mkdir(parents=True)
+    (first / "session.json").write_text("{}", encoding="utf-8")
+    second = source / "recording_primary_second"
+    second.mkdir(parents=True)
+    (second / "session.json").write_text("{}", encoding="utf-8")
+    qr = QRVerification(
+        status=ResultStatus.QR_DECRYPTED,
+        token_version=1,
+        payload={"b": "MM12", "r": "Recorder A", "dn": "ZY123", "sh": 2, "a": "Bedroom"},
+    )
+    facts = (
+        SessionFacts(
+            relative_path="recording_primary_first", kind=UnitKind.FINAL, capture_date="2026-11-25"
+        ),
+        SessionFacts(
+            relative_path="recording_primary_second", kind=UnitKind.FINAL, capture_date="2026-11-25"
+        ),
+    )
+    recordings = tuple(
+        RecordingResult(
+            recording_id=rid,
+            unit_paths=(unit.relative_path,),
+            device_id="cam-01",
+            created_epoch=None,
+            segments=(),
+            actual_duration_s=12.5,
+            status=ResultStatus.QR_DECRYPTED,
+            trust_level=1,
+            qr=qr,
+        )
+        for rid, unit in zip(("a" * 32, "b" * 32), facts, strict=True)
+    )
+    target = tmp_path / "organized"
+    for index, (unit, recording) in enumerate(zip(facts, recordings, strict=True)):
+        report = VerificationReport(
+            source_root=str(source),
+            run_id=f"run-{index}",
+            generated_at="2026-11-25T00:00:00+00:00",
+            units=(unit,),
+            recordings=(recording,),
+        )
+        plan = create_output_plan(report, target)
+        execute_move_plan(plan, confirmed=True)
+
+    group = target / "20261125_MM12_RecorderA_ZY123_S2_Bedroom"
+    assert (group / "recording_primary_first" / "session.json").is_file()
+    assert (group / "recording_primary_second" / "session.json").is_file()
+    assert undo_move(target) == 1
+    assert (source / "recording_primary_second" / "session.json").is_file()
+    assert (group / "recording_primary_first" / "session.json").is_file()
+    assert undo_move(target) == 1
+    assert (source / "recording_primary_first" / "session.json").is_file()

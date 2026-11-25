@@ -32,12 +32,11 @@ class OutputPlan:
 def _safe_component(value: Any, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"Field AITQR '{field}' kosong.")
-    result = value.strip()
-    if result in {".", ".."} or re.search(r'[<>:"/\\|?*\x00-\x1f]', result):
-        raise ValueError(f"Field AITQR '{field}' mengandung karakter nama folder yang tidak aman.")
-    if result.endswith((".", " ")):
-        raise ValueError(f"Field AITQR '{field}' tidak boleh diakhiri titik atau spasi.")
-    if result.upper().split(".")[0] in {
+    # Same normalization as ZYWTool's _alnum(): strip spaces and punctuation.
+    result = re.sub(r"[^A-Za-z0-9]", "", value)
+    if not result:
+        raise ValueError(f"Field AITQR '{field}' tidak memiliki karakter alfanumerik.")
+    if result.upper() in {
         "CON",
         "PRN",
         "AUX",
@@ -82,16 +81,26 @@ def create_output_plan(report: VerificationReport, destination: Path | str) -> O
     target = Path(destination).expanduser().resolve()
     if target == source or target in source.parents or source in target.parents:
         raise ValueError("Folder output harus terpisah dari folder sumber.")
-    if target.exists() and any(target.iterdir()):
-        raise FileExistsError(
-            "Folder output harus belum ada atau kosong; overwrite tidak diizinkan."
-        )
+    if target.exists() and not target.is_dir():
+        raise FileExistsError("Path Organized Folders sudah ada tetapi bukan folder.")
 
     items: list[OutputItem] = []
     blocked: list[str] = []
     for recording in report.recordings:
         if not recording.unit_paths:
             blocked.append(f"{recording.recording_id}: tidak memiliki folder sumber.")
+            continue
+        if recording.status is ResultStatus.CORRUPTED:
+            items.append(
+                OutputItem(
+                    recording.recording_id,
+                    "_REJECTED",
+                    recording.unit_paths,
+                    recording.status.value,
+                    False,
+                    "Recording corrupt dipisahkan ke _REJECTED seperti ZYWTool.",
+                )
+            )
             continue
         if recording.status in {
             ResultStatus.METADATA_ONLY,
@@ -147,7 +156,13 @@ def create_output_plan(report: VerificationReport, destination: Path | str) -> O
             )
         )
 
-    names = [item.folder_name.casefold() for item in items]
-    if len(names) != len(set(names)):
-        raise ValueError("Ada bentrokan nama output; tidak ada suffix otomatis yang ditambahkan.")
+    # Like ZYWTool, recordings with the same operational key share one group folder.
+    # Keep each recording separate so its own QR metadata enriches its own session.json.
+    claimed_paths: set[str] = set()
+    for item in items:
+        for relative in item.unit_paths:
+            key = (Path(item.folder_name) / relative).as_posix().casefold()
+            if key in claimed_paths:
+                raise ValueError(f"Bentrokan path recording di dalam grup: {key}")
+            claimed_paths.add(key)
     return OutputPlan(str(source), str(target), tuple(items), tuple(blocked))

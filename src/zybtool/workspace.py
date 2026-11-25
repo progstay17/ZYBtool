@@ -18,6 +18,39 @@ from zybtool.output import create_output_plan
 from zybtool.pipeline import run_verification, write_report
 from zybtool.settings import data_dir
 
+PREFERENCE_DEFAULTS = {
+    "source_root": "",
+    "report_root": str(Path.home() / "ZYB_Reports"),
+    "excel_root": str(Path.home() / "ZYB_Excel"),
+    "organized_root": str(Path.home() / "ZYB_Organized"),
+}
+
+
+def load_preferences() -> dict[str, str]:
+    path = data_dir() / "preferences.json"
+    values = dict(PREFERENCE_DEFAULTS)
+    if path.exists():
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            raise ValueError("preferences.json harus berupa object JSON.")
+        for key in values:
+            if isinstance(loaded.get(key), str):
+                values[key] = loaded[key].strip()
+    return values
+
+
+def save_preferences(values: dict[str, str]) -> None:
+    path = data_dir() / "preferences.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    clean = {}
+    for key in PREFERENCE_DEFAULTS:
+        raw = str(values.get(key, "") or "").strip()
+        clean[key] = str(Path(raw).expanduser().resolve()) if raw else ""
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(clean, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
 BG = "#080D0B"
 SIDEBAR = "#0E1511"
 SURFACE = "#131D17"
@@ -60,9 +93,11 @@ class WorkspaceMixin:
     def _init_workspace(self) -> None:
         self.current_report: Any = None
         self.report_directory: Path | None = None
-        self.source_path = tk.StringVar(value="")
-        self.report_path = tk.StringVar(value=str(Path.home() / "ZYB_Reports"))
-        self.output_path = tk.StringVar(value=str(Path.home() / "ZYB_Output"))
+        self.preferences = load_preferences()
+        self.source_path = tk.StringVar(value=self.preferences["source_root"])
+        self.report_path = tk.StringVar(value=self.preferences["report_root"])
+        self.excel_path = tk.StringVar(value=self.preferences["excel_root"])
+        self.output_path = tk.StringVar(value=self.preferences["organized_root"])
         self.output_queue: queue.Queue[Any] = queue.Queue()
         self.output_running = False
         self.last_move_path: Path | None = None
@@ -119,8 +154,10 @@ class WorkspaceMixin:
             "Overview": self._page_overview,
             "Verify Recordings": self._page_verify,
             "Review Queue": self._page_review,
+            "Arrange Folder": self._page_arrange,
             "Output & Reports": self._page_reports,
             "Activity Log": self._page_activity,
+            "Preferences": self._page_preferences,
             "Settings": self._build_settings_content,
         }
         builders[name]()
@@ -388,7 +425,9 @@ class WorkspaceMixin:
                 parent=self.root,
             )
             return
-        self.job_running = True
+        self.preferences["source_root"] = source
+        self.source_path.set(source)
+        save_preferences(self.preferences)
         self._log_activity(f"Verification started: {source}")
         self._set_status("Verifikasi berjalan. Folder sumber tetap read-only.")
         if hasattr(self, "verify_button"):
@@ -503,6 +542,72 @@ class WorkspaceMixin:
                     "; ".join(item.reasons) or "Perlu pemeriksaan manual",
                 ),
             )
+
+    def _page_arrange(self) -> None:
+        self._header(
+            "Arrange Folder",
+            "ZYWTool-style grouping with MOVE, SHA-256 verification, persistent destination and Undo.",
+        )
+        panel = self._panel(
+            "Organized Folders",
+            "Same group key goes into the same folder. Existing groups are reused; existing session folders are never overwritten.",
+        )
+        panel.pack(fill="x", padx=34, pady=(0, 14))
+        row = tk.Frame(panel, bg=SURFACE)
+        row.pack(fill="x", pady=(14, 0))
+        tk.Entry(
+            row,
+            textvariable=self.output_path,
+            bg="#0A100D",
+            fg=TEXT,
+            insertbackground=TEXT,
+            relief="flat",
+            font=(MONO, 9),
+        ).pack(side="left", fill="x", expand=True, ipady=10, padx=(0, 8))
+        self._button(row, "Browse", self._choose_output_dir).pack(side="right")
+        tk.Label(
+            panel,
+            text="Format grup: YYYYMMDD_LOKASI_NamaRecorder_DEVICE_S<shift>_Aktivitas. Contoh: 20261117_MM12_RecorderA_ZY123_S2_Kitchen. Nama folder recording asli tetap dipertahankan di dalam grup.",
+            bg=SURFACE,
+            fg=SECONDARY,
+            font=(FONT, 9),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(12, 8))
+        tk.Label(
+            panel,
+            text="QR belum didekripsi masuk _UNNAMED. Recording CORRUPTED masuk _REJECTED. Recording ambigu atau tidak lengkap tetap diblokir untuk review.",
+            bg=SURFACE,
+            fg=AMBER,
+            font=(FONT, 9),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 10))
+        self.output_status = tk.StringVar(value="Siap menyiapkan Arrange Folder.")
+        tk.Label(panel, textvariable=self.output_status, bg=SURFACE, fg=MUTED, font=(FONT, 9)).pack(
+            anchor="w", pady=(0, 8)
+        )
+        self.output_progress = ttk.Progressbar(panel, mode="indeterminate", length=360)
+        self.output_progress.pack(anchor="w")
+        self.output_button = self._button(
+            panel, "Preview Arrange & Execute MOVE", self._prepare_local_output, primary=True
+        )
+        self.output_button.pack(anchor="w", pady=(14, 0))
+        self._button(panel, "Undo last MOVE", self._undo_last_move, danger=True).pack(
+            anchor="w", pady=(8, 0)
+        )
+        if not self.current_report:
+            self.output_button.configure(state="disabled")
+            tk.Label(
+                panel,
+                text="Jalankan verification terlebih dahulu agar rencana Arrange dapat dibuat.",
+                bg=SURFACE,
+                fg=SECONDARY,
+                font=(FONT, 9),
+            ).pack(anchor="w", pady=(12, 0))
+        if self.output_running:
+            self.output_button.configure(state="disabled")
+            self.output_progress.start(12)
 
     def _page_reports(self) -> None:
         self._header(
@@ -641,19 +746,22 @@ class WorkspaceMixin:
             details = "\n".join(plan.blocked[:12]) or "Tidak ada recording yang memenuhi syarat."
             messagebox.showwarning("Tidak ada output yang aman", details, parent=self.root)
             return
-        unnamed = sum(not item.named for item in plan.items)
-        folder_preview = "\n".join(f"  • {item.folder_name}" for item in plan.items[:10])
-        if len(plan.items) > 10:
-            folder_preview += f"\n  … dan {len(plan.items) - 10} folder lainnya"
+        unnamed = sum(item.folder_name.startswith("_UNNAMED/") for item in plan.items)
+        rejected = sum(item.folder_name == "_REJECTED" for item in plan.items)
+        group_names = sorted({item.folder_name for item in plan.items}, key=str.casefold)
+        folder_preview = "\n".join(f"  • {name}" for name in group_names[:10])
+        if len(group_names) > 10:
+            folder_preview += f"\n  … dan {len(group_names) - 10} grup lainnya"
         preview = (
-            f"Siap DIPINDAHKAN: {len(plan.items)} recording\n"
+            f"Siap DIPINDAHKAN: {len(plan.items)} recording ke {len(group_names)} folder grup\n"
             f"Dengan nama operasional dari QR: {len(plan.items) - unnamed}\n"
             f"Masuk _UNNAMED: {unnamed}\n"
+            f"Masuk _REJECTED: {rejected}\n"
             f"Diblokir: {len(plan.blocked)}\n\n"
-            f"Preview folder:\n{folder_preview}\n\n"
+            f"Preview folder grup:\n{folder_preview}\n\n"
             f"Tujuan: {plan.destination}\n\n"
-            "Recording akan dipindahkan dari sumber. Folder tujuan harus baru/kosong. "
-            "Tidak ada overwrite; jurnal Undo akan dibuat. Lanjutkan MOVE?"
+            "Recording akan dipindahkan dari sumber. Folder grup yang sudah ada akan dipakai kembali. "
+            "Folder sesi yang bentrok tidak akan ditimpa; jurnal Undo per proses akan dibuat. Lanjutkan MOVE?"
         )
         if plan.blocked:
             preview += "\n\nSebagian recording diblokir karena bukti belum cukup; lihat detail pada Review Queue."
@@ -697,7 +805,7 @@ class WorkspaceMixin:
                 self.output_button.configure(state="normal")
             messagebox.showinfo(
                 "Output lokal selesai",
-                f"Penyalinan dan pemeriksaan SHA-256 selesai.\n\n{value}\n\nManifest berisi hash file dan belum ditandatangani.",
+                f"Pemindahan dan pemeriksaan SHA-256 selesai.\n\n{value}\n\nManifest berisi hash file dan belum ditandatangani.",
                 parent=self.root,
             )
         else:
@@ -711,23 +819,18 @@ class WorkspaceMixin:
     def _export_excel(self) -> None:
         if not self.current_report:
             return
-        initial = (
-            (self.report_directory / "ZYB_Rekap.xlsx")
-            if self.report_directory
-            else (Path.home() / "ZYB_Rekap.xlsx")
-        )
-        selected = filedialog.asksaveasfilename(
-            parent=self.root,
-            title="Export Excel ZYBTool",
-            initialfile=initial.name,
-            initialdir=str(initial.parent),
-            defaultextension=".xlsx",
-            filetypes=[("Excel Workbook", "*.xlsx")],
-        )
-        if not selected:
+        excel_root = self.excel_path.get().strip()
+        if not excel_root:
+            messagebox.showwarning(
+                "Excel output belum diatur",
+                "Atur folder Excel output di Preferences terlebih dahulu.",
+                parent=self.root,
+            )
+            self.show_page("Preferences")
             return
+        destination = Path(excel_root).expanduser() / "ZYB_Rekap.xlsx"
         try:
-            result = export_excel(self.current_report, selected)
+            result = export_excel(self.current_report, destination)
         except Exception as exc:
             messagebox.showerror("Excel export gagal", str(exc), parent=self.root)
             self._log_activity(f"Excel export failed: {exc}", "ERROR")
@@ -790,6 +893,107 @@ class WorkspaceMixin:
             self.root.clipboard_clear()
             self.root.clipboard_append(str(self.report_directory))
             self._set_status("Path laporan disalin.")
+
+    def _page_preferences(self) -> None:
+        self._header(
+            "Preferences",
+            "Atur lokasi default seperti ZYWTool. Hand Check dan Preview Frames tidak termasuk ZYBTool.",
+        )
+        panel = self._panel(
+            "Workspace folders",
+            "Folder tersimpan lokal pada profil Windows. Excel dibuat otomatis sebagai ZYB_Rekap.xlsx.",
+        )
+        panel.pack(fill="x", padx=34, pady=(0, 14))
+        fields = (
+            ("source_root", "Default source folder", "Folder MCAP/recording sumber"),
+            ("report_root", "Report output folder", "JSON, CSV, HTML dan inventory"),
+            ("excel_root", "Excel output folder", "Workbook otomatis: ZYB_Rekap.xlsx"),
+            ("organized_root", "Organized folders", "Tujuan Arrange Folder; MOVE, bukan copy"),
+        )
+        self.preference_vars = {}
+        for key, label, hint in fields:
+            row = tk.Frame(panel, bg=SURFACE)
+            row.pack(fill="x", pady=(14, 0))
+            tk.Label(
+                row, text=label, bg=SURFACE, fg=TEXT, font=(FONT, 9, "bold"), width=22, anchor="w"
+            ).pack(side="left")
+            variable = tk.StringVar(value=self.preferences.get(key, ""))
+            self.preference_vars[key] = variable
+            tk.Entry(
+                row,
+                textvariable=variable,
+                bg="#0A100D",
+                fg=TEXT,
+                insertbackground=TEXT,
+                relief="flat",
+                font=(MONO, 9),
+            ).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
+            self._button(
+                row, "Browse", lambda v=variable, h=hint: self._browse_preference(v, h)
+            ).pack(side="right")
+            tk.Label(panel, text=hint, bg=SURFACE, fg=MUTED, font=(FONT, 8)).pack(
+                anchor="w", pady=(3, 0)
+            )
+        self._button(panel, "Save Preferences", self._save_preferences, primary=True).pack(
+            anchor="w", pady=(18, 0)
+        )
+        tk.Label(
+            panel,
+            text="Format grup: YYYYMMDD_LOKASI_NamaRecorder_DEVICE_S<shift>_Aktivitas. Folder sesi asli tetap dipertahankan di dalam grup. Sesi dengan nama grup sama digabung.",
+            bg=SURFACE,
+            fg=SECONDARY,
+            font=(FONT, 9),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(14, 0))
+
+    def _browse_preference(self, variable: tk.StringVar, title: str) -> None:
+        selected = filedialog.askdirectory(parent=self.root, title=title)
+        if selected:
+            variable.set(selected)
+
+    def _save_preferences(self) -> None:
+        values = {key: variable.get().strip() for key, variable in self.preference_vars.items()}
+        for _key, value in values.items():
+            if (
+                value
+                and Path(value).expanduser().exists()
+                and not Path(value).expanduser().is_dir()
+            ):
+                messagebox.showerror(
+                    "Preferences tidak valid",
+                    f"Path harus berupa folder:\n{value}",
+                    parent=self.root,
+                )
+                return
+        source = (
+            Path(values["source_root"]).expanduser().resolve() if values["source_root"] else None
+        )
+        for key in ("report_root", "excel_root", "organized_root"):
+            if values[key]:
+                target = Path(values[key]).expanduser().resolve()
+                if source and (
+                    target == source or source in target.parents or target in source.parents
+                ):
+                    messagebox.showerror(
+                        "Folder tidak aman",
+                        f"{key} harus terpisah dari folder sumber:\n{target}",
+                        parent=self.root,
+                    )
+                    return
+                values[key] = str(target)
+        try:
+            save_preferences(values)
+        except Exception as exc:
+            messagebox.showerror("Gagal menyimpan Preferences", str(exc), parent=self.root)
+            return
+        self.preferences = values
+        self.source_path.set(values["source_root"])
+        self.report_path.set(values["report_root"])
+        self.excel_path.set(values["excel_root"])
+        self.output_path.set(values["organized_root"])
+        self._set_status("Preferences berhasil disimpan.")
+        messagebox.showinfo("Preferences", "Lokasi folder berhasil disimpan.", parent=self.root)
 
     def _page_activity(self) -> None:
         self._header(
