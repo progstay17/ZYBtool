@@ -10,21 +10,20 @@ from zybtool.qrdecoder import decode_qr_image, decode_token
 
 
 def _payload() -> dict[str, object]:
+    # AITQR payload keys come from each account's published profile, not a fixed ZYB schema.
     return {
-        "p": "zyb-recording",
-        "pv": 1,
-        "s": "0123456789ABCDEF",
-        "r": "BLACK",
-        "dn": "ZY010",
-        "di": "fixture-device-001",
-        "l": "SITE01",
-        "a": "Activity",
-        "sh": 1,
-        "b": "MM01",
+        "p": "field-operator-profile",
+        "pv": 3,
+        "s": "01J9Q8M4Y6T2K7W3",
+        "operator": "Fadhil",
+        "site_code": "SITE01",
+        "activity": "Recording",
+        "shift": 2,
+        "optional_flag": False,
     }
 
 
-def test_decode_token_returns_validated_json_payload() -> None:
+def test_decode_token_returns_original_aitqr_json_without_schema_restrictions() -> None:
     keypair = metaqr.generate_keypair()
     token = metaqr.encode(_payload(), keypair.public)
     assert decode_token(token, keypair.private) == _payload()
@@ -38,10 +37,10 @@ def test_decode_token_rejects_wrong_private_key() -> None:
         decode_token(token, wrong_key.private)
 
 
-def test_decode_token_rejects_non_contract_payload() -> None:
+def test_decode_token_rejects_non_object_payload() -> None:
     keypair = metaqr.generate_keypair()
-    token = metaqr.encode({"unexpected": True}, keypair.public)
-    with pytest.raises(ValueError, match="Payload terdekripsi tetapi tidak valid"):
+    token = metaqr.encode(["not", "an", "object"], keypair.public)
+    with pytest.raises(ValueError, match="bukan JSON object"):
         decode_token(token, keypair.private)
 
 
