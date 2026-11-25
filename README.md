@@ -7,10 +7,10 @@ Alat desktop lokal/offline untuk memeriksa recording camera project, mendekripsi
 - **M1 — selesai:** discovery, parser, timeline video, grouping konservatif, status, laporan dan CLI.
 - **M2 - QR MQ1 encrypted-only:** Scan selalu mendeteksi QR pada dua crop mata kamera. Jika private key tersedia, ZYBTool mendekripsi payload MQ1 dan memeriksa device ID terhadap session. Tidak ada signing key petugas, allow-list, atau replay log; MQ1 tidak mengautentikasi pembuat QR.
 - **Trust:** `QR_DECRYPTED` berarti payload berhasil didekripsi dan lolos korelasi dasar (level 1), bukan bukti identitas pengirim.
-- **M3 — fondasi lokal aktif:** Arrange Folder mengikuti grouping ZYWTool dengan template default YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas; sesi dengan kunci nama sama berbagi folder grup dan nama folder sesi asli tetap dipertahankan. MOVE mendukung Organized Folder yang sudah berisi grup sebelumnya, verifikasi SHA-256, jurnal Undo per proses, _UNNAMED untuk QR yang belum didekripsi, dan _REJECTED untuk recording CORRUPTED. Excel Export menyediakan sheet ZY White, Cek File, Scan Audit, Rekonsiliasi, serta mempertahankan kolom QC manual.
+- **M3 — fondasi lokal aktif:** Arrange Folder mengikuti grouping ZYWTool dengan template default `YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas`; sesi dengan kunci nama sama berbagi folder grup dan nama folder sesi asli tetap dipertahankan. Preferences memiliki JSON Variable Scanner (Browse/Scan), deteksi nested object/array, field mapping, template editor dan live preview. No Shift menghilangkan token SESSION tanpa menghasilkan `S0`. MOVE tetap memakai verifikasi SHA-256 dan jurnal Undo. Excel Export menyediakan sheet ZY White, Cek File, Scan Audit, Rekonsiliasi, serta mempertahankan kolom QC manual.
 - **OSS Transfers — dihapus dari scope:** pola nama folder OSS hanya referensi format; tidak ada credential, bucket browser, upload, atau download.
 
-Kontrak field dan pola nama folder untuk AITQR ada di AITQR_INTEGRATION.md. Lihat IMPLEMENTATION_STATUS.md untuk hasil validasi dan dependensi tahap berikutnya.
+Kontrak payload AITQR dan mapping nama folder lokal ada di AITQR_INTEGRATION.md. Scanner dapat membaca `session.json` kamera atau JSON contoh payload QR; pemetaan hanya memengaruhi nama folder output. Lihat IMPLEMENTATION_STATUS.md untuk hasil validasi dan dependensi tahap berikutnya.
 
 ## Persyaratan
 
