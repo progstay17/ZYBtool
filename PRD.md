@@ -167,7 +167,7 @@ Ketergantungan: M2 butuh rilis awal AITQR (atau vektor uji sintetis) untuk QR ny
 
 | ID | Pertanyaan | Catatan |
 |---|---|---|
-| D1 | Kompatibilitas konsumen OSS dengan level `recording_primary_*` di dalam folder operasional. | [?] Observasi <site-code>: tanpa level itu. |
+| D1 | Compatibility of downstream consumers with the additional primary-recording folder level. | [?] Must be validated in a non-production environment. |
 | D2 | Sumber kode `MM<kode>` dan nomor `ZY<nnn>`. | Tidak ada di `session.json`; harus masuk payload QR (profil AITQR). |
 | D3 | Template/normalisasi nama operasional (location suffix, ejaan, panjang nama). | Variasi nyata di OSS. |
 | D4 | Salin vs pindah ke `ZYB_Output`. | Default: salin. |

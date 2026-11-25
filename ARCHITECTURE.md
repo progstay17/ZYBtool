@@ -277,7 +277,7 @@ Keputusan: sistem hybrid dua produk; ZYB Tool desktop. Integrasi jaringan/API pe
 
 - Kontinuitas PTS dan `mono_us` antar mkv di folder `.live_*` (mkv-nya belum diprobe).
 - Perilaku `segment_index`, `object_id`, dan isi folder FINAL untuk recording multi-segment nyata.
-- Ada tidaknya `recording_primary_*` di folder <site-code> lain, dan konsumen OSS terhadap level tambahan itu.
+- Whether other deployments use the same primary-folder layout and whether downstream consumers accept the additional folder level.
 - Sumber waktu jam kamera (RTC/NTP) dan drift terhadap jam HP.
 - Semantik konkurensi replay log Metaqr; kompatibilitas `cryptography` di Python 3.14.
 - Flag ossutil 2.x untuk larangan overwrite, metadata kustom, checkpoint, CRC64.
