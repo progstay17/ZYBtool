@@ -1,6 +1,6 @@
 # ZYB Tool — Implementation Status
 
-Updated: 2026-11-25
+Updated: 2026-11-26
 
 ## M1 — offline verification foundation
 
@@ -67,12 +67,12 @@ Remaining before production: trust level 3+ correlations, final shared AITQR vec
 
 ## OSS integration — out of scope
 
-ZYBTool has no OSS credentials, bucket listing, upload, download, sync or transfer functionality. OSS folder names are a naming-pattern reference only. AITQR owns the configurable source fields and emits the QR payload; ZYBTool validates that payload.
+ZYBTool has no OSS credentials, bucket listing, upload, download, sync or transfer functionality. OSS folder names are a naming-pattern reference only. AITQR owns source fields and emits the encrypted QR payload; ZYBTool validates that payload and owns its local output naming template/mapping from native JSON plus verified QR metadata.
 
 ## Desktop UI — workspace foundation
 
 Implemented locally:
-- Functional Overview, Verify Recordings (background scan), Review Queue, Output & Reports (local JSON/CSV/HTML), Activity Log and Settings navigation.
+- Functional Overview, Verify Recordings (background scan), Review Queue, Arrange Folder, Output & Reports (local JSON/CSV/HTML), Activity Log, Preferences and Settings navigation. Preferences include a read-only JSON variable scanner, nested field mapping, editable folder-name template, live preview and No Shift token omission.
 - A native Windows desktop shell using the Python standard-library Tkinter; no additional GUI package was added.
 - Dark graphite / restrained signal-green styling aligned with DESIGN.md.
 - Security & Keys page: decoder key state, public key display and clipboard copy, one-time key generation, concealed two-entry private-key recovery import, optional allow-list JSON import, trusted-device count, local storage location and folder access.
