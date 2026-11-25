@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 import json
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
