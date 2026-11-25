@@ -1,0 +1,45 @@
+﻿{
+    "type":  "stereo_standalone",
+    "created":  1739191153.0,
+    "created_iso":  "2025-02-10T12:39:13",
+    "object_id":  "fixture-object-002",
+    "capture_date":  "2025-02-10",
+    "device_id":  "fixture-device-002",
+    "device_model":  "generic",
+    "script_infor":  {
+                         "scripts_id_included":  [
+
+                                                 ],
+                         "scripts_id_batch":  [
+
+                                              ]
+                     },
+    "script_clips":  [
+
+                     ],
+    "people":  {
+                   "uuid":  "",
+                   "name":  "",
+                   "collector_name":  "",
+                   "height":  "",
+                   "weight":  "",
+                   "dominant_hand":  "",
+                   "gender":  "",
+                   "address":  ""
+               },
+    "seamless":  true,
+    "live_root":  ".live_20250210_123913",
+    "segment_index":  1,
+    "capture_t0":  {
+                       "schema":  "guida.capture_t0.v1",
+                       "source":  "stereo_cam_record",
+                       "t_wall_s":  1739191153.001,
+                       "t_sys_ns":  1739191153000999936,
+                       "t_mono_ns":  1153000000000,
+                       "t_mono_s":  1153.0,
+                       "created_iso":  "2025-02-10T12:39:13"
+                   },
+    "segment_start_wall":  1739191155.8,
+    "segment_stop_wall":  1739193896.4329998,
+    "video_duration_s":  2740.633
+}

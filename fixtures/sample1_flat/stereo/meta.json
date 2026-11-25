@@ -1,0 +1,68 @@
+﻿{
+    "stream":  "stereo_rgb",
+    "mode":  "standalone",
+    "camera":  {
+                   "card":  "Generic Stereo Camera",
+                   "usb_id":  "0000:0000",
+                   "model_hint":  "Generic stereo camera",
+                   "device":  "camera-device-A"
+               },
+    "format":  {
+                   "pixfmt":  "generic",
+                   "width":  1920,
+                   "height":  480,
+                   "fps":  30,
+                   "layout":  "side_by_side",
+                   "left_crop":  [
+                                     960,
+                                     0,
+                                     960,
+                                     480
+                                 ],
+                   "right_crop":  [
+                                      0,
+                                      0,
+                                      960,
+                                      480
+                                  ],
+                   "imu_band_px":  0,
+                   "imu_band_side":  "none",
+                   "sbs_order":  "left_right",
+                   "eye_note":  "Synthetic stereo crop fixture",
+                   "rotation_deg":  0,
+                   "rotation_note":  "none"
+               },
+    "container":  "stereo_000000.mkv",
+    "usable":  {
+                   "frozen_head_frames":  10,
+                   "usable_start_frame":  11,
+                   "usable_start_s":  0.333,
+                   "last_sidecar_frame":  1500,
+                   "tail_mark_s":  0.5,
+                   "usable_end_frame":  1450
+               },
+    "master_codec":  "generic-video-codec",
+    "master_lossy":  true,
+    "master_encoder":  "generic-hardware-encoder",
+    "timing":  {
+                   "start_wallclock":  1736952605.8,
+                   "start_monotonic":  1200,
+                   "start_iso":  "2025-01-15T14:50:03",
+                   "stop_wallclock":  1736953114.9659998,
+                   "pts":  "in-frame exposure clock (IMU CSV exp_start_us) -\u003e monotonic via mono_us; container PTS synthetic",
+                   "pts_mode":  "exposure_clock"
+               },
+    "stop_reason":  "request",
+    "imu":  {
+                "device":  "Generic six-axis IMU",
+                "rate_hz":  100,
+                "samples_per_frame":  3,
+                "decode_every":  1,
+                "encoding":  "Synthetic fixture timestamp marker",
+                "source":  "Synthetic fixture timing metadata",
+                "csv":  "fixture_imu.csv",
+                "postprocess":  "live"
+            },
+    "sdk_note":  "Synthetic fixture metadata; no vendor-specific information.",
+    "audio":  null
+}

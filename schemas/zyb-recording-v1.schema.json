@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:zybtool:schema:zyb-recording:v1",
+  "title": "ZYB Recording QR Payload v1",
+  "description": "Payload contract owned by ZYB Tool and consumed by AITQR.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["p", "pv", "s", "r", "dn", "di", "l", "a", "sh", "b"],
+  "properties": {
+    "p": { "const": "zyb-recording" },
+    "pv": { "const": 1 },
+    "s": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{16}$",
+      "description": "16-character Crockford Base32 session identifier."
+    },
+    "r": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "dn": { "type": "string", "pattern": "^ZY[0-9]{3,4}$" },
+    "di": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "l": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "a": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "sh": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "b": { "type": "string", "pattern": "^MM[0-9]{2,4}$" }
+  }
+}

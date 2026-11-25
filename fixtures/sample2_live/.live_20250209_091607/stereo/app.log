@@ -1,0 +1,4 @@
+[09:16:10] start mode=stereo device=fixture-camera-003
+[09:17:14] RESTART camera stream alert=1
+[09:24:23] RESTART camera stream alert=1
+[09:39:48] stop reason=service_shutdown dur=1417.7s

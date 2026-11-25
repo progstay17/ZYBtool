@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zybtool"
+version = "0.1.0"
+description = "Offline recording verification and safe OSS preparation tool"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "av==19.0.2",
+  "metaqr[reader] @ git+https://github.com/progstay17/Metaqr.git@baae37471201b3ae3477d0cf0dcb8ffd26e4dc76",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.2.0", "ruff==0.17.5", "mypy==2.4.1"]
+
+[project.scripts]
+zybtool = "zybtool.cli:main"
+zybtool-gui = "zybtool.gui:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = ["integration: checks against local operational recording samples"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

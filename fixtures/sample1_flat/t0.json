@@ -1,0 +1,9 @@
+﻿{
+    "schema":  "guida.capture_t0.v1",
+    "source":  "synthetic_fixture",
+    "t_wall_s":  1736952603.001,
+    "t_sys_ns":  1736952603001000000,
+    "t_mono_ns":  1000000000000,
+    "t_mono_s":  1000,
+    "created_iso":  "2025-01-15T14:50:03"
+}

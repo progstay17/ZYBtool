@@ -1,0 +1,39 @@
+﻿{
+    "ok":  true,
+    "reason":  "request",
+    "wall_s":  509.166,
+    "max_inter_stream_skew_s":  0.0,
+    "max_wall_skew_s":  0.0,
+    "stereo":  {
+                   "mkv":  "stereo/stereo_000000.mkv",
+                   "bytes":  12345678,
+                   "exp_span_s":  507.448,
+                   "imu_hz":  100,
+                   "duration":  509.166,
+                   "width":  1920,
+                   "height":  480,
+                   "fps":  30,
+                   "nb_frames":  0,
+                   "eff_fps":  30.0
+               },
+    "wrists":  [
+
+               ],
+    "gloves":  [
+
+               ],
+    "bands":  [
+
+              ],
+    "gates":  {
+                  "max_duration_skew_s":  2.0,
+                  "wrist_min_fps":  28.0,
+                  "stereo_min_fps":  28,
+                  "stereo_min_imu_hz":  70,
+                  "wrist_res":  "1920x1080"
+              },
+    "fails":  [
+
+              ],
+    "written_at":  "2025-01-15T14:50:03"
+}
