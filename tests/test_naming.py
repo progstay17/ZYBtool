@@ -130,7 +130,10 @@ def test_custom_aitqr_profile_short_keys_can_be_mapped_explicitly() -> None:
     assert build_folder_name(payload, {}, "2026-11-24", config) == (
         "20261124_MM3201_testonly_ZY007_S5_Kitchen"
     )
-    assert preview_folder_name(
-        {"capture_date": "2026-11-24", "qr": payload},
-        config,
-    ) == "20261124_MM3201_testonly_ZY007_S5_Kitchen"
+    assert (
+        preview_folder_name(
+            {"capture_date": "2026-11-24", "qr": payload},
+            config,
+        )
+        == "20261124_MM3201_testonly_ZY007_S5_Kitchen"
+    )
