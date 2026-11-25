@@ -13,41 +13,65 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 from zybtool.models import ResultStatus
+from zybtool.naming import DEFAULT_CONFIG, DEFAULT_FIELD_MAP, DEFAULT_TEMPLATE, TOKENS, preview_folder_name, scan_json_file, validate_template
 from zybtool.operations import execute_move_plan, export_excel, undo_move
 from zybtool.output import create_output_plan
 from zybtool.pipeline import run_verification, write_report
 from zybtool.settings import data_dir
 
-PREFERENCE_DEFAULTS = {
+PREFERENCE_DEFAULTS: dict[str, Any] = {
     "source_root": "",
     "report_root": str(Path.home() / "ZYB_Reports"),
     "excel_root": str(Path.home() / "ZYB_Excel"),
     "organized_root": str(Path.home() / "ZYB_Organized"),
+    "naming": dict(DEFAULT_CONFIG),
 }
 
 
-def load_preferences() -> dict[str, str]:
+def load_preferences() -> dict[str, Any]:
     path = data_dir() / "preferences.json"
     values = dict(PREFERENCE_DEFAULTS)
+    values["naming"] = {**DEFAULT_CONFIG, "field_map": dict(DEFAULT_FIELD_MAP)}
     if path.exists():
         loaded = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(loaded, dict):
             raise ValueError("preferences.json harus berupa object JSON.")
-        for key in values:
+        for key in ("source_root", "report_root", "excel_root", "organized_root"):
             if isinstance(loaded.get(key), str):
                 values[key] = loaded[key].strip()
+        naming = loaded.get("naming")
+        if isinstance(naming, dict):
+            values["naming"] = {
+                **values["naming"],
+                "source_json": str(naming.get("source_json") or "").strip(),
+                "template": str(naming.get("template") or DEFAULT_TEMPLATE),
+                "field_map": {
+                    token: str((naming.get("field_map") or {}).get(token) or DEFAULT_FIELD_MAP[token])
+                    for token in TOKENS
+                },
+                "no_shift": bool(naming.get("no_shift", False)),
+            }
     return values
 
 
-def save_preferences(values: dict[str, str]) -> None:
+def save_preferences(values: dict[str, Any]) -> None:
     path = data_dir() / "preferences.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    clean = {}
-    for key in PREFERENCE_DEFAULTS:
+    clean: dict[str, Any] = {}
+    for key in ("source_root", "report_root", "excel_root", "organized_root"):
         raw = str(values.get(key, "") or "").strip()
         clean[key] = str(Path(raw).expanduser().resolve()) if raw else ""
+    naming = values.get("naming") if isinstance(values.get("naming"), dict) else {}
+    template = validate_template(str(naming.get("template") or DEFAULT_TEMPLATE))
+    field_map = naming.get("field_map") if isinstance(naming.get("field_map"), dict) else {}
+    clean["naming"] = {
+        "source_json": str(naming.get("source_json") or "").strip(),
+        "template": template,
+        "field_map": {token: str(field_map.get(token) or DEFAULT_FIELD_MAP[token]) for token in TOKENS},
+        "no_shift": bool(naming.get("no_shift", False)),
+    }
     temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(clean, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.write_text(json.dumps(clean, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
     temporary.replace(path)
 
 
@@ -94,6 +118,7 @@ class WorkspaceMixin:
         self.current_report: Any = None
         self.report_directory: Path | None = None
         self.preferences = load_preferences()
+        self.naming_preferences = dict(self.preferences.get("naming") or DEFAULT_CONFIG)
         self.source_path = tk.StringVar(value=self.preferences["source_root"])
         self.report_path = tk.StringVar(value=self.preferences["report_root"])
         self.excel_path = tk.StringVar(value=self.preferences["excel_root"])
@@ -738,7 +763,7 @@ class WorkspaceMixin:
             )
             return
         try:
-            plan = create_output_plan(self.current_report, Path(destination))
+            plan = create_output_plan(self.current_report, Path(destination), self.naming_preferences)
         except Exception as exc:
             messagebox.showerror("Output plan gagal", str(exc), parent=self.root)
             return
