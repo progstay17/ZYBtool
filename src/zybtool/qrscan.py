@@ -211,7 +211,11 @@ def verify_recording_qr(
                 )
                 continue
             device_id = payload.get("di")
-            if recording.device_id and isinstance(device_id, str) and device_id != recording.device_id:
+            if (
+                recording.device_id
+                and isinstance(device_id, str)
+                and device_id != recording.device_id
+            ):
                 best_error = QRVerification(
                     ResultStatus.METADATA_MISMATCH,
                     token_version=1,
