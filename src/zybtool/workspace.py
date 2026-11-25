@@ -47,10 +47,12 @@ def load_preferences() -> dict[str, Any]:
         for key in ("source_root", "report_root", "excel_root", "organized_root"):
             if isinstance(loaded.get(key), str):
                 values[key] = loaded[key].strip()
-        naming = loaded.get("naming")
-        if isinstance(naming, dict):
-            stored_map = (
-                naming.get("field_map") if isinstance(naming.get("field_map"), dict) else {}
+        naming_value = loaded.get("naming")
+        if isinstance(naming_value, dict):
+            naming: dict[str, Any] = naming_value
+            stored_map_value = naming.get("field_map")
+            stored_map: dict[str, Any] = (
+                stored_map_value if isinstance(stored_map_value, dict) else {}
             )
             values["naming"] = {
                 **values["naming"],
@@ -72,9 +74,13 @@ def save_preferences(values: dict[str, Any]) -> None:
     for key in ("source_root", "report_root", "excel_root", "organized_root"):
         raw = str(values.get(key, "") or "").strip()
         clean[key] = str(Path(raw).expanduser().resolve()) if raw else ""
-    naming = values.get("naming") if isinstance(values.get("naming"), dict) else {}
+    naming_value = values.get("naming")
+    naming: dict[str, Any] = naming_value if isinstance(naming_value, dict) else {}
     template = validate_template(str(naming.get("template") or DEFAULT_TEMPLATE))
-    field_map = naming.get("field_map") if isinstance(naming.get("field_map"), dict) else {}
+    field_map_value = naming.get("field_map")
+    field_map: dict[str, Any] = (
+        field_map_value if isinstance(field_map_value, dict) else {}
+    )
     clean["naming"] = {
         "source_json": str(naming.get("source_json") or "").strip(),
         "template": template,
@@ -1044,7 +1050,10 @@ class WorkspaceMixin:
         ).pack(anchor="w", pady=(0, 8))
         map_vars: dict[str, tk.StringVar] = {}
         map_boxes: dict[str, ttk.Combobox] = {}
-        saved_map = naming.get("field_map") if isinstance(naming.get("field_map"), dict) else {}
+        saved_map_value = naming.get("field_map")
+        saved_map: dict[str, Any] = (
+            saved_map_value if isinstance(saved_map_value, dict) else {}
+        )
         auto_label = "(Auto / default)"
         map_wrap = tk.Frame(naming_panel, bg=SURFACE)
         map_wrap.pack(fill="x")
@@ -1090,14 +1099,14 @@ class WorkspaceMixin:
                 sample_data = json.loads(path.read_text(encoding="utf-8-sig"))
                 if isinstance(sample_data, list):
                     sample_data = next((item for item in sample_data if isinstance(item, dict)), {})
-                for item in fields_tree.get_children():
-                    fields_tree.delete(item)
-                for item in detected_fields:
-                    rendered = json.dumps(item["sample"], ensure_ascii=False, default=str)
+                for child_id in fields_tree.get_children():
+                    fields_tree.delete(child_id)
+                for field in detected_fields:
+                    rendered = json.dumps(field["sample"], ensure_ascii=False, default=str)
                     if len(rendered) > 110:
                         rendered = rendered[:107] + "..."
                     fields_tree.insert(
-                        "", "end", text=item["path"], values=(item["type"], rendered)
+                        "", "end", text=field["path"], values=(field["type"], rendered)
                     )
                 refresh_field_choices()
                 scan_status.set(
