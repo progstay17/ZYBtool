@@ -16,17 +16,20 @@ def test_workspace_preferences_persist_per_windows_profile(tmp_path: Path, monke
         "naming": {
             "source_json": str(tmp_path / "sample.json"),
             "template": "{DATE}_{LOCATION_CODE}_{PERSON_NAME}_{DEVICE_ID}_{ACTIVITY}",
-            "field_map": {"DATE": "capture_date", "LOCATION_CODE": "b", "PERSON_NAME": "r", "DEVICE_ID": "dn", "SESSION": "sh", "ACTIVITY": "a"},
+            "field_map": {
+                "DATE": "capture_date",
+                "LOCATION_CODE": "b",
+                "PERSON_NAME": "r",
+                "DEVICE_ID": "dn",
+                "SESSION": "sh",
+                "ACTIVITY": "a",
+            },
             "no_shift": True,
         },
     }
     save_preferences(values)
     loaded = load_preferences()
-    expected = {
-        key: str(Path(value).resolve())
-        for key, value in values.items()
-        if key != "naming"
-    }
+    expected = {key: str(Path(value).resolve()) for key, value in values.items() if key != "naming"}
     expected["naming"] = values["naming"]
     assert loaded == expected
     document = json.loads((tmp_path / "profile" / "preferences.json").read_text(encoding="utf-8"))
