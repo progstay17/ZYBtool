@@ -1324,9 +1324,7 @@ class WorkspaceMixin:
             "Scan gambar QR AITQR atau tempel token MQ1. Dekripsi berlangsung lokal dengan private key DPAPI.",
         )
         self.qr_payload: dict[str, Any] | None = None
-        self.qr_status_var = tk.StringVar(
-            value="Siap. Pilih gambar QR atau tempel token MQ1."
-        )
+        self.qr_status_var = tk.StringVar(value="Siap. Pilih gambar QR atau tempel token MQ1.")
 
         input_panel = self._panel(
             "INPUT",
@@ -1340,32 +1338,43 @@ class WorkspaceMixin:
         image_column = tk.Frame(columns, bg=SURFACE)
         image_column.pack(side="left", fill="y", padx=(8, 0))
         tk.Label(
-            token_column, text="PASTE TOKEN MQ1", bg=SURFACE, fg=GREEN,
-            font=(FONT, 9, "bold")
+            token_column, text="PASTE TOKEN MQ1", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")
         ).pack(anchor="w", pady=(0, 7))
         self.qr_token_text = tk.Text(
-            token_column, height=7, wrap="word", bg="#0A100D", fg=TEXT,
-            insertbackground=GREEN, relief="flat", bd=0, padx=12, pady=10,
-            font=(MONO, 9), highlightthickness=1, highlightbackground=LINE,
+            token_column,
+            height=7,
+            wrap="word",
+            bg="#0A100D",
+            fg=TEXT,
+            insertbackground=GREEN,
+            relief="flat",
+            bd=0,
+            padx=12,
+            pady=10,
+            font=(MONO, 9),
+            highlightthickness=1,
+            highlightbackground=LINE,
             highlightcolor=GREEN,
         )
         self.qr_token_text.pack(fill="both", expand=True)
-        self._button(
-            token_column, "Decrypt token", self._decode_qr_token, primary=True
-        ).pack(anchor="w", pady=(9, 0))
+        self._button(token_column, "Decrypt token", self._decode_qr_token, primary=True).pack(
+            anchor="w", pady=(9, 0)
+        )
         tk.Label(
-            image_column, text="SCAN DARI GAMBAR", bg=SURFACE, fg=GREEN,
-            font=(FONT, 9, "bold")
+            image_column, text="SCAN DARI GAMBAR", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")
         ).pack(anchor="w", pady=(0, 7))
         tk.Label(
             image_column,
             text="Pilih file PNG, JPG, JPEG, BMP, atau WebP yang berisi QR AITQR.",
-            bg=SURFACE, fg=SECONDARY, font=(FONT, 9), justify="left",
+            bg=SURFACE,
+            fg=SECONDARY,
+            font=(FONT, 9),
+            justify="left",
             wraplength=220,
         ).pack(anchor="w", pady=(0, 12))
-        self._button(
-            image_column, "Browse QR image", self._decode_qr_image, primary=False
-        ).pack(anchor="w")
+        self._button(image_column, "Browse QR image", self._decode_qr_image, primary=False).pack(
+            anchor="w"
+        )
 
         result_panel = self._panel(
             "DECRYPTED JSON",
@@ -1373,8 +1382,13 @@ class WorkspaceMixin:
         )
         result_panel.pack(fill="both", expand=True, padx=34, pady=(0, 14))
         tk.Label(
-            result_panel, textvariable=self.qr_status_var, bg=SURFACE,
-            fg=SECONDARY, font=(FONT, 9), anchor="w", justify="left",
+            result_panel,
+            textvariable=self.qr_status_var,
+            bg=SURFACE,
+            fg=SECONDARY,
+            font=(FONT, 9),
+            anchor="w",
+            justify="left",
             wraplength=900,
         ).pack(fill="x", pady=(12, 8))
         preview_wrap = tk.Frame(result_panel, bg="#0A100D")
@@ -1382,22 +1396,27 @@ class WorkspaceMixin:
         preview_scroll = ttk.Scrollbar(preview_wrap, orient="vertical")
         preview_scroll.pack(side="right", fill="y")
         self.qr_json_text = tk.Text(
-            preview_wrap, height=17, wrap="none", bg="#0A100D", fg=GREEN,
-            insertbackground=GREEN, relief="flat", bd=0, padx=14, pady=12,
-            font=(MONO, 9), yscrollcommand=preview_scroll.set,
+            preview_wrap,
+            height=17,
+            wrap="none",
+            bg="#0A100D",
+            fg=GREEN,
+            insertbackground=GREEN,
+            relief="flat",
+            bd=0,
+            padx=14,
+            pady=12,
+            font=(MONO, 9),
+            yscrollcommand=preview_scroll.set,
             state="disabled",
         )
         self.qr_json_text.pack(side="left", fill="both", expand=True)
         preview_scroll.configure(command=self.qr_json_text.yview)
         actions = tk.Frame(result_panel, bg=SURFACE)
         actions.pack(fill="x", pady=(12, 0))
-        self.qr_copy_button = self._button(
-            actions, "Copy JSON", self._copy_qr_json, primary=False
-        )
+        self.qr_copy_button = self._button(actions, "Copy JSON", self._copy_qr_json, primary=False)
         self.qr_copy_button.pack(side="left")
-        self.qr_save_button = self._button(
-            actions, "Save .json", self._save_qr_json, primary=True
-        )
+        self.qr_save_button = self._button(actions, "Save .json", self._save_qr_json, primary=True)
         self.qr_save_button.pack(side="left", padx=(8, 0))
         self.qr_copy_button.configure(state="disabled")
         self.qr_save_button.configure(state="disabled")
@@ -1498,4 +1517,3 @@ class WorkspaceMixin:
             )
         except OSError as exc:
             messagebox.showerror("Gagal menyimpan JSON", str(exc), parent=self.root)
-
