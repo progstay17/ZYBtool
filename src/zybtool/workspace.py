@@ -988,7 +988,7 @@ class WorkspaceMixin:
         naming = self.naming_preferences
         naming_panel = self._panel(
             "Naming Convention",
-            "Scan JSON contoh untuk menemukan field. Mapping ini hanya mengatur nama folder output; metadata QR tetap harus lolos verifikasi.",
+            "Browse `session.json` kamera atau JSON contoh payload QR, lalu scan field. Mapping hanya mengatur nama folder output; metadata QR tetap harus lolos verifikasi.",
         )
         naming_panel.pack(fill="x", padx=34, pady=(0, 14))
         tk.Label(
@@ -1169,7 +1169,7 @@ class WorkspaceMixin:
         no_shift_var = tk.BooleanVar(value=bool(naming.get("no_shift", False)))
         tk.Checkbutton(
             naming_panel,
-            text="No Shift — hilangkan token SESSION sepenuhnya, jangan tulis S0",
+            text="No Shift — hilangkan token SESSION di nama folder; QR tetap divalidasi; jangan tulis S0",
             variable=no_shift_var,
             bg=SURFACE,
             fg=TEXT,
