@@ -253,6 +253,9 @@ def preview_folder_name(sample: Any, config: dict[str, Any] | None = None) -> st
     for token, key in defaults.items():
         path = str(field_map.get(token) or "").strip()
         raw = _resolve_path(path, session, payload) if path else payload.get(key)
+        if token == "SESSION" and raw in (0, "0", "S0", "s0", None, ""):
+            values.pop("SESSION", None)
+            continue
         if raw is None:
             raw = "{" + token + "}"
         else:
