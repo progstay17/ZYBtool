@@ -68,10 +68,11 @@ def _operational_name(
         if path in facts and facts[path].capture_date
     }
     dates = {value for value in dates if len(value) == 8}
-    if len(dates) != 1:
+    if len(dates) > 1:
         raise ValueError("Tanggal capture tidak tersedia atau ambigu.")
     session = _load_native_session(Path(report.source_root).resolve(strict=True), recording)
-    return build_folder_name(payload, session, dates.pop(), naming_config)
+    capture_date = dates.pop() if dates else None
+    return build_folder_name(payload, session, capture_date, naming_config)
 
 
 def create_output_plan(
