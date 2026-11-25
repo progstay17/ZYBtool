@@ -230,10 +230,14 @@ def build_folder_name(
 def preview_folder_name(sample: Any, config: dict[str, Any] | None = None) -> str:
     """Render a Preferences preview from the selected JSON sample without moving files."""
     cfg = {**DEFAULT_CONFIG, **(config or {})}
-    sample_dict = sample if isinstance(sample, dict) else {}
-    payload = sample_dict.get("qr") if isinstance(sample_dict.get("qr"), dict) else sample_dict
-    session = (
-        sample_dict.get("session") if isinstance(sample_dict.get("session"), dict) else sample_dict
+    sample_dict: dict[str, Any] = sample if isinstance(sample, dict) else {}
+    payload_value = sample_dict.get("qr")
+    payload: dict[str, Any] = (
+        payload_value if isinstance(payload_value, dict) else sample_dict
+    )
+    session_value = sample_dict.get("session")
+    session: dict[str, Any] = (
+        session_value if isinstance(session_value, dict) else sample_dict
     )
     field_map = {**DEFAULT_FIELD_MAP, **(cfg.get("field_map") or {})}
     template = validate_template(str(cfg.get("template") or DEFAULT_TEMPLATE))
