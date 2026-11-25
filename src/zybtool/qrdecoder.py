@@ -10,12 +10,11 @@ import metaqr
 from metaqr.errors import MetaQRError
 from metaqr.qr import find_token
 
-from zybtool.qrscan import validate_zyb_payload
 from zybtool.settings import load_decoder_private_key
 
 
 def decode_token(token: str, private_key: bytes) -> dict[str, Any]:
-    """Decrypt and validate one MQ1 token using the supplied local private key."""
+    """Decrypt an MQ1 token and return its original JSON object without imposing a schema."""
     normalized = token.strip()
     if not normalized:
         raise ValueError("Token kosong.")
@@ -35,9 +34,6 @@ def decode_token(token: str, private_key: bytes) -> dict[str, Any]:
         ) from None
     if not isinstance(payload, dict):
         raise ValueError("Isi token terdekripsi bukan JSON object.")
-    valid, problems = validate_zyb_payload(payload)
-    if not valid:
-        raise ValueError("Payload terdekripsi tetapi tidak valid: " + "; ".join(problems))
     return payload
 
 
