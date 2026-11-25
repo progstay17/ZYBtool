@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,7 +49,6 @@ def _read_crop_rectangles(
                 x2, y2 = min(x + width, frame_width), min(y + height, frame_height)
                 if x < x2 and y < y2:
                     crops.append((label, (x, y, x2, y2)))
-    # Unknown layouts are not guessed: use the full frame as a documented fallback.
     return tuple(crops) or (("full-frame-fallback", (0, 0, frame_width, frame_height)),)
 
 
@@ -127,35 +125,12 @@ def scan_video_tokens(
 
 
 def validate_zyb_payload(payload: dict[str, Any]) -> tuple[bool, tuple[str, ...]]:
-    """Validate the current consumer-owned zyb-recording/v1 contract."""
-    expected = {"p", "pv", "s", "r", "dn", "di", "l", "a", "sh", "b"}
-    problems: list[str] = []
-    if set(payload) != expected:
-        problems.append("Field payload tidak sama dengan zyb-recording/v1")
-        return False, tuple(problems)
-    if payload.get("p") != "zyb-recording" or payload.get("pv") != 1:
-        problems.append("Penanda payload bukan zyb-recording/v1")
-    if not isinstance(payload.get("s"), str) or not re.fullmatch(
-        r"[0-9A-HJKMNP-TV-Z]{16}", payload["s"]
-    ):
-        problems.append("Session ID tidak sesuai format")
-    if not isinstance(payload.get("r"), str) or not 1 <= len(payload["r"]) <= 40:
-        problems.append("Recorder tidak valid")
-    if not isinstance(payload.get("dn"), str) or not re.fullmatch(r"ZY[0-9]{3,4}", payload["dn"]):
-        problems.append("Device number tidak valid")
-    for field in ("di", "l", "a"):
-        value = payload.get(field)
-        if not isinstance(value, str) or not 1 <= len(value) <= 80:
-            problems.append(f"Field {field} tidak valid")
-    if (
-        isinstance(payload.get("sh"), bool)
-        or not isinstance(payload.get("sh"), int)
-        or not 1 <= payload["sh"] <= 3
-    ):
-        problems.append("Shift tidak valid")
-    if not isinstance(payload.get("b"), str) or not re.fullmatch(r"MM[0-9]{2,4}", payload["b"]):
-        problems.append("Batch tidak valid")
-    return not problems, tuple(problems)
+    """Accept AITQR's account-configured payload; do not impose a fixed field schema."""
+    if not isinstance(payload, dict):
+        return False, ("Isi QR harus berupa JSON object.",)
+    if not payload:
+        return False, ("Payload JSON kosong.",)
+    return True, ()
 
 
 def verify_recording_qr(
@@ -164,7 +139,7 @@ def verify_recording_qr(
     *,
     private_key: bytes | None = None,
 ) -> QRVerification:
-    """Decrypt encrypted-only MQ1 tokens; sender identity is deliberately not asserted."""
+    """Decrypt MQ1 tokens; payload fields are defined by the selected AITQR account profile."""
     root = Path(source_root)
     best_error: QRVerification | None = None
     for segment in recording.segments:
@@ -224,19 +199,19 @@ def verify_recording_qr(
                     reasons=(f"Dekripsi QR gagal: {type(exc).__name__}: {exc}",),
                 )
                 continue
-            valid, problems = validate_zyb_payload(payload)
-            if not valid:
+            if not isinstance(payload, dict) or not payload:
                 best_error = QRVerification(
                     ResultStatus.METADATA_MISMATCH,
                     token_version=1,
-                    payload=payload,
+                    payload=payload if isinstance(payload, dict) else None,
                     source_video=segment.video.relative_path,
                     time_s=scan.first_seen_s.get(token),
                     votes=votes,
-                    reasons=problems,
+                    reasons=("Payload QR bukan JSON object yang berisi data.",),
                 )
                 continue
-            if recording.device_id and payload["di"] != recording.device_id:
+            device_id = payload.get("di")
+            if recording.device_id and isinstance(device_id, str) and device_id != recording.device_id:
                 best_error = QRVerification(
                     ResultStatus.METADATA_MISMATCH,
                     token_version=1,
@@ -245,7 +220,7 @@ def verify_recording_qr(
                     time_s=scan.first_seen_s.get(token),
                     votes=votes,
                     reasons=(
-                        f"Payload device ID {payload['di']!r} tidak cocok dengan session {recording.device_id!r}",
+                        f"Payload device ID {device_id!r} tidak cocok dengan session {recording.device_id!r}",
                     ),
                 )
                 continue
