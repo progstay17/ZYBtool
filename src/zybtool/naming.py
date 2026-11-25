@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import json
 import re
 from pathlib import Path
@@ -25,7 +26,7 @@ DEFAULT_CONFIG = {
 }
 
 
-def _walk(value: Any, prefix: str = "", depth: int = 0):
+def _walk(value: Any, prefix: str = "", depth: int = 0) -> Iterator[tuple[str, Any]]:
     if depth > 12:
         return
     if isinstance(value, dict):
@@ -54,7 +55,7 @@ def scan_json_file(path: str | Path) -> list[dict[str, Any]]:
         raise ValueError(f"JSON tidak dapat dibaca ({type(exc).__name__}).") from None
     if not isinstance(value, (dict, list)):
         raise ValueError("Akar JSON harus berupa object atau array.")
-    fields = []
+    fields: list[dict[str, Any]] = []
     for field_path, sample in _walk(value):
         fields.append(
             {
