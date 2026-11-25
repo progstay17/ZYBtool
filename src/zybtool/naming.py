@@ -60,7 +60,8 @@ def scan_json_file(path: str | Path) -> list[dict[str, Any]]:
             {
                 "path": field_path,
                 "type": _value_type(sample),
-                "sample": sample if isinstance(sample, (str, int, float, bool)) or sample is None
+                "sample": sample
+                if isinstance(sample, (str, int, float, bool)) or sample is None
                 else ("object" if isinstance(sample, dict) else f"array[{len(sample)}]"),
             }
         )
@@ -121,7 +122,10 @@ def _safe_component(value: Any, field: str) -> str:
     if not result:
         raise ValueError(f"Variabel {field} tidak memiliki karakter alfanumerik.")
     if result.upper() in {
-        "CON", "PRN", "AUX", "NUL",
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
         *(f"COM{i}" for i in range(1, 10)),
         *(f"LPT{i}" for i in range(1, 10)),
     }:
@@ -154,7 +158,9 @@ def validate_template(template: str) -> str:
         raise ValueError("Token tidak dikenal: " + ", ".join(unknown))
     residue = re.sub(r"\{[A-Z_]+\}", "", value)
     if re.search(r"[^A-Za-z0-9_. -]", residue) or "/" in residue or "\\" in residue:
-        raise ValueError("Separator hanya boleh huruf, angka, spasi, titik, garis bawah, atau tanda hubung.")
+        raise ValueError(
+            "Separator hanya boleh huruf, angka, spasi, titik, garis bawah, atau tanda hubung."
+        )
     if not found:
         raise ValueError("Template harus memiliki minimal satu token.")
     return value
@@ -225,7 +231,9 @@ def preview_folder_name(sample: Any, config: dict[str, Any] | None = None) -> st
     cfg = {**DEFAULT_CONFIG, **(config or {})}
     sample_dict = sample if isinstance(sample, dict) else {}
     payload = sample_dict.get("qr") if isinstance(sample_dict.get("qr"), dict) else sample_dict
-    session = sample_dict.get("session") if isinstance(sample_dict.get("session"), dict) else sample_dict
+    session = (
+        sample_dict.get("session") if isinstance(sample_dict.get("session"), dict) else sample_dict
+    )
     field_map = {**DEFAULT_FIELD_MAP, **(cfg.get("field_map") or {})}
     template = validate_template(str(cfg.get("template") or DEFAULT_TEMPLATE))
     date_value = None
@@ -235,7 +243,13 @@ def preview_folder_name(sample: Any, config: dict[str, Any] | None = None) -> st
     if date_value is None:
         date_value = session.get("capture_date") or session.get("created_iso") or "20261125"
     values: dict[str, str] = {"DATE": _date_component(date_value)}
-    defaults = {"LOCATION_CODE": "b", "PERSON_NAME": "r", "DEVICE_ID": "dn", "SESSION": "sh", "ACTIVITY": "a"}
+    defaults = {
+        "LOCATION_CODE": "b",
+        "PERSON_NAME": "r",
+        "DEVICE_ID": "dn",
+        "SESSION": "sh",
+        "ACTIVITY": "a",
+    }
     for token, key in defaults.items():
         path = str(field_map.get(token) or "").strip()
         raw = _resolve_path(path, session, payload) if path else payload.get(key)
