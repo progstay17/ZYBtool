@@ -41,12 +41,13 @@ def load_preferences() -> dict[str, Any]:
                 values[key] = loaded[key].strip()
         naming = loaded.get("naming")
         if isinstance(naming, dict):
+            stored_map = naming.get("field_map") if isinstance(naming.get("field_map"), dict) else {}
             values["naming"] = {
                 **values["naming"],
                 "source_json": str(naming.get("source_json") or "").strip(),
                 "template": str(naming.get("template") or DEFAULT_TEMPLATE),
                 "field_map": {
-                    token: str((naming.get("field_map") or {}).get(token) or DEFAULT_FIELD_MAP[token])
+                    token: str(stored_map.get(token) or DEFAULT_FIELD_MAP[token])
                     for token in TOKENS
                 },
                 "no_shift": bool(naming.get("no_shift", False)),
@@ -71,7 +72,7 @@ def save_preferences(values: dict[str, Any]) -> None:
         "no_shift": bool(naming.get("no_shift", False)),
     }
     temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(clean, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    temporary.write_text(json.dumps(clean, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
 
 
