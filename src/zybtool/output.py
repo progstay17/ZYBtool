@@ -34,11 +34,12 @@ class OutputPlan:
 def _load_native_session(source: Path, recording: Any) -> dict[str, Any]:
     """Read only the canonical session.json for the first unit in a recording."""
     for relative in recording.unit_paths:
-        unit_dir = (source / relative).resolve(strict=True)
+        candidate = source / relative
+        if candidate.is_symlink():
+            raise ValueError("Symlink recording tidak diizinkan untuk naming metadata.")
+        unit_dir = candidate.resolve(strict=True)
         if unit_dir != source and source not in unit_dir.parents:
             raise ValueError("Path session keluar dari folder sumber.")
-        if unit_dir.is_symlink():
-            raise ValueError("Symlink recording tidak diizinkan untuk naming metadata.")
         session_file = unit_dir / "session.json"
         if not session_file.is_file() or session_file.is_symlink():
             continue
