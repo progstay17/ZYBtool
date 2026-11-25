@@ -7,7 +7,7 @@ Alat desktop lokal/offline untuk memeriksa recording camera project, mendekripsi
 - **M1 — selesai:** discovery, parser, timeline video, grouping konservatif, status, laporan dan CLI.
 - **M2 - QR MQ1 encrypted-only:** Scan selalu mendeteksi QR pada dua crop mata kamera. Jika private key tersedia, ZYBTool mendekripsi payload MQ1 dan memeriksa device ID terhadap session. Tidak ada signing key petugas, allow-list, atau replay log; MQ1 tidak mengautentikasi pembuat QR.
 - **Trust:** `QR_DECRYPTED` berarti payload berhasil didekripsi dan lolos korelasi dasar (level 1), bukan bukti identitas pengirim.
-- **M3 — fondasi lokal aktif:** Arrange Folder mengikuti grouping ZYWTool: YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas; sesi dengan kunci nama sama berbagi folder grup dan nama folder sesi asli tetap dipertahankan. MOVE mendukung Organized Folder yang sudah berisi grup sebelumnya, verifikasi SHA-256, jurnal Undo per proses, _UNNAMED untuk QR yang belum didekripsi, dan _REJECTED untuk recording CORRUPTED. Excel Export menyediakan sheet ZY White, Cek File, Scan Audit, Rekonsiliasi, serta mempertahankan kolom QC manual.
+- **M3 — fondasi lokal aktif:** Arrange Folder mengikuti grouping ZYWTool dengan template default YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas; sesi dengan kunci nama sama berbagi folder grup dan nama folder sesi asli tetap dipertahankan. MOVE mendukung Organized Folder yang sudah berisi grup sebelumnya, verifikasi SHA-256, jurnal Undo per proses, _UNNAMED untuk QR yang belum didekripsi, dan _REJECTED untuk recording CORRUPTED. Excel Export menyediakan sheet ZY White, Cek File, Scan Audit, Rekonsiliasi, serta mempertahankan kolom QC manual.
 - **OSS Transfers — dihapus dari scope:** pola nama folder OSS hanya referensi format; tidak ada credential, bucket browser, upload, atau download.
 
 Kontrak field dan pola nama folder untuk AITQR ada di AITQR_INTEGRATION.md. Lihat IMPLEMENTATION_STATUS.md untuk hasil validasi dan dependensi tahap berikutnya.
@@ -34,7 +34,7 @@ Jalankan workspace desktop tanpa membuka terminal aplikasi:
 
     .\run-gui.ps1
 
-Workspace memiliki Overview, Verify Recordings, Review Queue, Arrange Folder, Output & Reports, Activity Log, Preferences, dan Settings. Verifikasi berjalan di background agar UI tetap responsif; laporan JSON/CSV/HTML ditulis ke folder lokal terpisah. Settings menyediakan generate/import/export private key X25519, copy public key untuk AITQR, dan akses folder penyimpanan lokal. Tidak ada allow-list atau signing key petugas.
+Workspace memiliki Overview, Verify Recordings, Review Queue, Arrange Folder, Output & Reports, Activity Log, Preferences, dan Settings. Preferences menyediakan JSON Variable Scanner untuk membaca field bertingkat/array, mapping token, template nama folder yang dapat diubah, live preview, dan opsi No Shift (SESSION dihilangkan, tidak pernah ditulis sebagai S0). Verifikasi berjalan di background agar UI tetap responsif; laporan JSON/CSV/HTML ditulis ke folder lokal terpisah. Settings menyediakan generate/import/export private key X25519, copy public key untuk AITQR, dan akses folder penyimpanan lokal. Tidak ada allow-list atau signing key petugas.
 
 ### Pengaturan kunci decoder
 
