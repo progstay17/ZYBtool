@@ -1,6 +1,6 @@
 # ZYB Tool — Product Requirements Document
 
-Status: **MVP desktop berjalan** · Tanggal: 2026-11-25 · M1/M2 pipeline dan workspace UI aktif; Arrange MOVE + Excel Export aktif; Naming Convention GUI dengan JSON scanner dan No Shift. Penamaan operasional memakai payload MQ1 setelah dekripsi dan korelasi device ID. Tidak ada fitur OSS Transfers.
+Status: **MVP desktop berjalan** · Tanggal: 2026-11-25 · M1/M2 pipeline dan workspace UI aktif; Arrange MOVE + Excel Export aktif; Naming Convention GUI dengan JSON scanner dan No Shift. Nama folder default memakai tanggal capture native dan field payload MQ1 terverifikasi; Preferences dapat memetakan field JSON dan mengubah template tanpa melemahkan verifikasi QR. Tidak ada fitur OSS Transfers.
 Repo GitHub: `progstay17/ZYBtool` (terpisah dari AITQR).
 
 Legenda: **[F]** fakta terverifikasi dari inspeksi PC/OSS · **[A]** asumsi · **[?]** belum terverifikasi (harus diuji sebelum dipakai).
