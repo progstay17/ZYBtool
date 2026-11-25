@@ -633,11 +633,15 @@ class WorkspaceMixin:
             messagebox.showwarning("Tidak ada output yang aman", details, parent=self.root)
             return
         unnamed = sum(not item.named for item in plan.items)
+        folder_preview = "\n".join(f"  • {item.folder_name}" for item in plan.items[:10])
+        if len(plan.items) > 10:
+            folder_preview += f"\n  … dan {len(plan.items) - 10} folder lainnya"
         preview = (
             f"Siap disalin: {len(plan.items)} recording\n"
             f"Dengan nama operasional dari QR: {len(plan.items) - unnamed}\n"
             f"Masuk _UNNAMED: {unnamed}\n"
             f"Diblokir: {len(plan.blocked)}\n\n"
+            f"Preview folder:\n{folder_preview}\n\n"
             f"Tujuan: {plan.destination}\n\n"
             "Sumber tidak akan diubah. Folder tujuan harus baru/kosong. "
             "Tidak ada overwrite. Lanjutkan penyalinan lokal?"

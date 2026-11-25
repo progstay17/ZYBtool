@@ -60,7 +60,7 @@ Implemented foundation:
 - Operational names are generated only from a valid QR payload at trust level 3+ and the configured AITQR fields; all other uncertain/invalid results are blocked.
 - Original source folders are read-only; directory names and file bytes are preserved. Symlinks and special files are rejected.
 - SHA-256 is streamed before and after copy; source is re-hashed to detect changes. Existing/non-empty destinations and file collisions stop the operation; no overwrite.
-- Atomic staging directory and local manifest with per-file hashes.
+- Atomic staging directory, persisted output_plan.json, and local manifest with per-file hashes.
 
 Remaining before production: trust level 3+ correlations, final shared AITQR vectors, administrator manifest signature, and validation of the downstream folder layout. The local manifest is explicitly marked unsigned.
 
@@ -89,7 +89,7 @@ Validation on local Windows workstation (2026-11-25):
 - Regression: decoder key generation and `set_decoder_private_key` both refuse to replace an existing key.
 - Latest wheel before public-fixture sanitization: `dist/zybtool-0.1.0-py3-none-any.whl`, 33,481 bytes; verified to contain `zybtool/gui.py` and the `zybtool-gui` console entry point. SHA-256: `f712c8de626b4f459c49bbb35fe1275d1e38664847e210c655650c2755e6f242`.
 
-A standalone Windows x64 portable folder + ZIP is built with PyInstaller; the GUI executable was smoke-tested on the local workstation. Release v0.1.1 adds the Settings private-key import recovery flow. Workspace navigation, local reports and guarded local output-copy workflow are in the unreleased 0.2.0 development build.
+A standalone Windows x64 portable folder + ZIP is built with PyInstaller; the GUI executable was smoke-tested on the local workstation. Release v0.1.1 adds the Settings private-key import recovery flow. Workspace navigation, local reports and guarded local output-copy workflow are in the unreleased 0.2.1 development build.
 
 ## Project boundary
 

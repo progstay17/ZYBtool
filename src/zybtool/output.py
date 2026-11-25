@@ -241,6 +241,27 @@ def execute_output_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
             item_root = staging / item.folder_name
             for relative in item.unit_paths:
                 _copy_unit(source, relative, item_root, manifest)
+        plan_document = {
+            "format": "zybtool-local-output-plan-v1",
+            "approved_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "source_root": str(source),
+            "destination": str(target),
+            "items": [
+                {
+                    "recording_id": item.recording_id,
+                    "folder_name": item.folder_name,
+                    "status": item.status,
+                    "named_from_qr": item.named,
+                    "reason": item.reason,
+                    "unit_paths": list(item.unit_paths),
+                }
+                for item in plan.items
+            ],
+            "blocked": list(plan.blocked),
+        }
+        (staging / "output_plan.json").write_text(
+            json.dumps(plan_document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
         document = {
             "format": "zybtool-local-output-manifest-v1",
             "created_at": datetime.now(UTC).isoformat(timespec="seconds"),

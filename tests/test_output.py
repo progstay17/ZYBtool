@@ -81,6 +81,8 @@ def test_metadata_only_output_is_unnamed_and_source_is_preserved(tmp_path: Path)
     ).is_dir()
     assert original.read_bytes() == b"recording-data"
     manifest = json.loads((result / "manifest.json").read_text(encoding="utf-8"))
+    plan_document = json.loads((result / "output_plan.json").read_text(encoding="utf-8"))
+    assert plan_document["items"][0]["folder_name"] == plan.items[0].folder_name
     assert manifest["verification_status"] == "LOCAL_COPY_HASH_VERIFIED_UNSIGNED"
     assert manifest["files"][0]["sha256"]
 
