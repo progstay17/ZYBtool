@@ -1198,6 +1198,7 @@ class WorkspaceMixin:
                 "field_map": field_map,
                 "no_shift": no_shift_var.get(),
             }
+
         def update_preview(*_args: Any) -> None:
             if sample_data is None:
                 preview_var.set("Preview akan muncul setelah file JSON dipindai.")
