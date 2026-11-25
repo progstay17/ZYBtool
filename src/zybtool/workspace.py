@@ -13,7 +13,15 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 from zybtool.models import ResultStatus
-from zybtool.naming import DEFAULT_CONFIG, DEFAULT_FIELD_MAP, DEFAULT_TEMPLATE, TOKENS, preview_folder_name, scan_json_file, validate_template
+from zybtool.naming import (
+    DEFAULT_CONFIG,
+    DEFAULT_FIELD_MAP,
+    DEFAULT_TEMPLATE,
+    TOKENS,
+    preview_folder_name,
+    scan_json_file,
+    validate_template,
+)
 from zybtool.operations import execute_move_plan, export_excel, undo_move
 from zybtool.output import create_output_plan
 from zybtool.pipeline import run_verification, write_report
