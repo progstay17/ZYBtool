@@ -103,3 +103,34 @@ def test_template_rejects_path_separators() -> None:
         assert "Separator" in str(exc)
     else:
         raise AssertionError("Unsafe folder path template was accepted")
+
+
+def test_custom_aitqr_profile_short_keys_can_be_mapped_explicitly() -> None:
+    payload = {
+        "p": "zyb-recording",
+        "pv": 1,
+        "s": "3F30WDDZWKDYPZJD",
+        "c": "testing",
+        "d": "ZY007",
+        "l": "MM3201",
+        "m": "test only",
+        "ss": "5",
+        "t": "Kitchen",
+    }
+    config = {
+        "field_map": {
+            "LOCATION_CODE": "qr.l",
+            "PERSON_NAME": "qr.m",
+            "DEVICE_ID": "qr.d",
+            "SESSION": "qr.ss",
+            "ACTIVITY": "qr.t",
+        }
+    }
+
+    assert build_folder_name(payload, {}, "2026-11-24", config) == (
+        "20261124_MM3201_testonly_ZY007_S5_Kitchen"
+    )
+    assert preview_folder_name(
+        {"capture_date": "2026-11-24", "qr": payload},
+        config,
+    ) == "20261124_MM3201_testonly_ZY007_S5_Kitchen"
