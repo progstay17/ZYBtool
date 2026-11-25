@@ -16,8 +16,8 @@ from zybtool import __version__
 from zybtool.settings import (
     data_dir,
     decoder_public_key_hex,
+    export_decoder_private_key,
     generate_decoder_keypair,
-    import_allowlist,
     remove_decoder_private_key,
     set_decoder_private_key,
     settings_status,
@@ -55,13 +55,12 @@ class ZYBToolApp(WorkspaceMixin):
         self.key_state_var = tk.StringVar(value="Memeriksa…")
         self.key_detail_var = tk.StringVar(value="")
         self.public_key_var = tk.StringVar(value="")
-        self.allowlist_state_var = tk.StringVar(value="Memeriksa…")
-        self.allowlist_detail_var = tk.StringVar(value="")
         self.storage_var = tk.StringVar(value=str(data_dir()))
         self.generate_button: tk.Button | None = None
         self.import_button: tk.Button | None = None
         self.copy_button: tk.Button | None = None
         self.remove_button: tk.Button | None = None
+        self.export_button: tk.Button | None = None
         self.public_entry: tk.Entry | None = None
         self._init_workspace()
         self._build_styles()
@@ -197,58 +196,43 @@ class ZYBToolApp(WorkspaceMixin):
     def _build_settings_content(self) -> None:
         page = self.content
         page.grid_columnconfigure(0, weight=1)
-
         header = tk.Frame(page, bg=BG)
         header.grid(row=0, column=0, sticky="ew", padx=34, pady=(28, 22))
-        tk.Label(header, text="Settings", bg=BG, fg=TEXT, font=(FONT, 25, "bold")).pack(anchor="w")
+        tk.Label(header, text="Decoder Settings", bg=BG, fg=TEXT, font=(FONT, 25, "bold")).pack(
+            anchor="w"
+        )
         tk.Label(
             header,
-            text="Kelola identitas decoder dan perangkat AITQR yang dipercaya.",
+            text="Satu public key untuk AITQR. Tidak ada pairing atau allow-list.",
             bg=BG,
             fg=SECONDARY,
             font=(FONT, 10),
         ).pack(anchor="w", pady=(6, 0))
 
-        section = tk.Frame(page, bg=BG)
-        section.grid(row=1, column=0, sticky="ew", padx=34)
-        tk.Label(section, text="SECURITY & KEYS", bg=BG, fg=GREEN, font=(FONT, 9, "bold")).pack(
-            anchor="w"
+        key_card = self._card(page)
+        key_card.grid(row=1, column=0, sticky="ew", padx=34, pady=(0, 14))
+        self._card_title(
+            key_card,
+            "Encrypted QR decoder",
+            "X25519 ? Metaqr MQ1 ? private key dilindungi Windows DPAPI",
         )
-        tk.Frame(section, bg=LINE, height=1).pack(fill="x", pady=(10, 16))
-
-        grid = tk.Frame(page, bg=BG)
-        grid.grid(row=2, column=0, sticky="ew", padx=34)
-        grid.grid_columnconfigure(0, weight=3)
-        grid.grid_columnconfigure(1, weight=2)
-
-        key_card = self._card(grid)
-        key_card.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=(0, 14))
-        allow_card = self._card(grid)
-        allow_card.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=(0, 14))
-
-        self._card_title(key_card, "Decoder keypair", "X25519 · dekripsi QR MQ2")
-        key_state = tk.Frame(key_card, bg=SURFACE)
-        key_state.pack(fill="x", pady=(16, 12))
+        state = tk.Frame(key_card, bg=SURFACE)
+        state.pack(fill="x", pady=(16, 12))
         tk.Label(
-            key_state,
-            textvariable=self.key_state_var,
-            bg=SURFACE,
-            fg=GREEN,
-            font=(FONT, 11, "bold"),
+            state, textvariable=self.key_state_var, bg=SURFACE, fg=GREEN, font=(FONT, 11, "bold")
         ).pack(anchor="w")
         tk.Label(
-            key_state,
+            state,
             textvariable=self.key_detail_var,
             bg=SURFACE,
             fg=SECONDARY,
             font=(FONT, 9),
             justify="left",
-            wraplength=500,
+            wraplength=820,
         ).pack(anchor="w", pady=(4, 0))
-
         tk.Label(
             key_card,
-            text="PUBLIC KEY  /  UNTUK AITQR",
+            text="PUBLIC KEY ? TEMPEL KE PENGATURAN AITQR",
             bg=SURFACE,
             fg=MUTED,
             font=(FONT, 8, "bold"),
@@ -275,96 +259,62 @@ class ZYBToolApp(WorkspaceMixin):
         )
         self.copy_button.pack(side="right", fill="y")
 
-        action_row = tk.Frame(key_card, bg=SURFACE)
-        action_row.pack(fill="x", pady=(16, 0))
+        actions = tk.Frame(key_card, bg=SURFACE)
+        actions.pack(fill="x", pady=(16, 0))
         self.generate_button = self._button(
-            action_row, "Generate decoder key", self.generate_key, primary=True
+            actions, "Generate key", self.generate_key, primary=True
         )
         self.generate_button.pack(side="left")
         self.import_button = self._button(
-            action_row, "Import private key", self.import_private_key, primary=False
+            actions, "Import private key", self.import_private_key, primary=False
         )
         self.import_button.pack(side="left", padx=(8, 0))
-        self.remove_button = self._button(action_row, "Remove key", self.remove_key, danger=True)
+        self.export_button = self._button(
+            actions, "Export private key", self.export_private_key, danger=True
+        )
+        self.export_button.pack(side="left", padx=(8, 0))
+        self.remove_button = self._button(actions, "Remove key", self.remove_key, danger=True)
         self.remove_button.pack(side="left", padx=(8, 0))
 
-        self._card_title(
-            allow_card, "Trusted devices · Optional", "Ed25519 · verifikasi tanda tangan MQ2"
-        )
+        handoff = self._card(page)
+        handoff.grid(row=2, column=0, sticky="ew", padx=34, pady=(0, 14))
+        self._card_title(handoff, "Simple key handoff", "Hanya satu kali setup")
         tk.Label(
-            allow_card,
-            textvariable=self.allowlist_state_var,
+            handoff,
+            text="1. Generate atau import private key di ZYBTool.   2. Copy public key.   3. Tempel ke AITQR.   4. AITQR membuat QR terenkripsi MQ1; ZYBTool membacanya dengan private key ini.",
             bg=SURFACE,
             fg=TEXT,
-            font=(FONT, 15, "bold"),
-        ).pack(anchor="w", pady=(22, 4))
-        tk.Label(
-            allow_card,
-            textvariable=self.allowlist_detail_var,
-            bg=SURFACE,
-            fg=SECONDARY,
             font=(FONT, 9),
-            wraplength=280,
+            wraplength=900,
             justify="left",
-        ).pack(anchor="w", pady=(0, 18))
-        self._button(
-            allow_card, "Import allow-list (optional)", self.choose_allowlist, primary=False
-        ).pack(anchor="w")
+        ).pack(anchor="w", pady=(14, 0))
         tk.Label(
-            allow_card,
-            text="Opsional. File JSON divalidasi oleh Metaqr sebelum disimpan lokal. Tidak diperlukan untuk membuka atau menjalankan ZYBTool.",
+            handoff,
+            text="MQ1 mengenkripsi isi QR, tetapi tidak mengautentikasi pembuatnya. Siapa pun yang memiliki public key dapat membuat token yang bisa didekripsi.",
             bg=SURFACE,
-            fg=MUTED,
-            font=(FONT, 8),
-            wraplength=280,
+            fg=AMBER,
+            font=(FONT, 9),
+            wraplength=900,
             justify="left",
-        ).pack(anchor="w", pady=(12, 0))
+        ).pack(anchor="w", pady=(10, 0))
 
         storage = self._card(page)
-        storage.grid(row=3, column=0, sticky="ew", padx=34, pady=(2, 14))
-        self._card_title(storage, "Local security storage", "Windows DPAPI · current Windows user")
-        storage_row = tk.Frame(storage, bg=SURFACE)
-        storage_row.pack(fill="x", pady=(16, 0))
-        storage_text = tk.Frame(storage_row, bg=SURFACE)
-        storage_text.pack(side="left", fill="x", expand=True)
+        storage.grid(row=3, column=0, sticky="ew", padx=34, pady=(0, 28))
+        self._card_title(storage, "Local security storage", "Windows DPAPI ? current Windows user")
+        row = tk.Frame(storage, bg=SURFACE)
+        row.pack(fill="x", pady=(14, 0))
         tk.Label(
-            storage_text,
-            text="APPLICATION DATA DIRECTORY",
-            bg=SURFACE,
-            fg=MUTED,
-            font=(FONT, 8, "bold"),
-        ).pack(anchor="w")
-        tk.Label(
-            storage_text,
+            row,
             textvariable=self.storage_var,
             bg=SURFACE,
             fg=TEXT,
             font=(MONO, 9),
             wraplength=760,
             justify="left",
-        ).pack(anchor="w", pady=(5, 0))
-        self._button(storage_row, "Open folder", self.open_storage, primary=False).pack(
+        ).pack(side="left", fill="x", expand=True)
+        self._button(row, "Open folder", self.open_storage, primary=False).pack(
             side="right", padx=(12, 0)
         )
-
-        notice = tk.Frame(page, bg="#111B15", highlightthickness=1, highlightbackground="#304A31")
-        notice.grid(row=4, column=0, sticky="ew", padx=34, pady=(0, 28))
-        tk.Label(notice, text="KEY HANDOFF", bg="#111B15", fg=GREEN, font=(FONT, 8, "bold")).pack(
-            anchor="w", padx=16, pady=(13, 4)
-        )
-        tk.Label(
-            notice,
-            text=(
-                "ZYBTool membuat pasangan X25519. Hanya public key di atas yang disalin "
-                "ke AITQR untuk enkripsi. Private key tetap berada di PC ini dan dilindungi "
-                "Windows DPAPI; jangan pernah mengirim atau menyalinnya ke AITQR."
-            ),
-            bg="#111B15",
-            fg=TEXT,
-            font=(FONT, 9),
-            wraplength=900,
-            justify="left",
-        ).pack(anchor="w", padx=16, pady=(0, 13))
 
     @staticmethod
     def _card(parent: tk.Widget) -> tk.Frame:
@@ -454,18 +404,9 @@ class ZYBToolApp(WorkspaceMixin):
                 if self.import_button is not None:
                     self.import_button.configure(state="normal")
 
-            if status["allowlist_configured"]:
-                count = int(status["trusted_devices"])
-                self.allowlist_state_var.set(f"{count} perangkat tepercaya")
-                self.allowlist_detail_var.set(
-                    "Allow-list aktif. Status tiap device tetap mengikuti entri Metaqr."
-                )
-            else:
-                self.allowlist_state_var.set("Opsional — belum dikonfigurasi")
-                self.allowlist_detail_var.set(
-                    "ZYBTool tetap bisa digunakan tanpa pairing. Impor allow-list "
-                    "Ed25519 kapan saja untuk memverifikasi tanda tangan perangkat AITQR. "
-                    "Perangkat yang belum dipercaya tidak akan dianggap valid."
+            if self.export_button is not None:
+                self.export_button.configure(
+                    state="normal" if status["decoder_key_configured"] else "disabled"
                 )
             self._set_status("Pengaturan lokal berhasil dibaca.")
         except Exception as exc:
@@ -580,31 +521,44 @@ class ZYBToolApp(WorkspaceMixin):
         self.root.update()
         self._set_status("Public key disalin ke clipboard. Private key tidak disalin.")
 
-    def choose_allowlist(self) -> None:
-        selected = filedialog.askopenfilename(
+    def export_private_key(self) -> None:
+        if not self.public_key_var.get():
+            return
+        confirmed = messagebox.askyesno(
+            "Export private key",
+            "File hasil export berisi private key plaintext. Siapa pun yang memilikinya dapat mendekripsi QR untuk public key ini. Simpan di media terenkripsi dan jangan kirim melalui chat/email. Lanjutkan?",
+            icon="warning",
             parent=self.root,
-            title="Pilih allow-list perangkat AITQR",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+        if not confirmed:
+            return
+        selected = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Export private decoder key",
+            defaultextension=".key",
+            filetypes=[
+                ("ZYBTool private key", "*.key"),
+                ("Text file", "*.txt"),
+                ("All files", "*.*"),
+            ],
+            initialfile="ZYBTool-decoder-private.key",
         )
         if not selected:
             return
         try:
-            destination, count = import_allowlist(Path(selected))
-            self._log_activity(f"Trusted-device allow-list imported ({count} entries)")
-            self.refresh()
-            self._set_status(f"Allow-list berhasil diimpor: {count} perangkat.")
-            messagebox.showinfo(
-                "Allow-list berhasil diimpor",
-                f"{count} perangkat tepercaya dimuat.\n\nLokasi lokal:\n{destination}",
+            destination = export_decoder_private_key(Path(selected))
+            self._log_activity("Decoder private key exported", "WARNING")
+            self._set_status("Private key berhasil diekspor. Simpan file secara aman.")
+            messagebox.showwarning(
+                "Private key diekspor",
+                "Private key plaintext disimpan di "
+                + str(destination)
+                + ". Simpan file di media terenkripsi; jangan upload ke GitHub atau kirim melalui chat/email.",
                 parent=self.root,
             )
         except Exception as exc:
-            messagebox.showerror(
-                "Allow-list tidak dapat diimpor",
-                str(exc),
-                parent=self.root,
-            )
-            self._set_status(f"Impor allow-list gagal: {exc}", error=True)
+            messagebox.showerror("Export private key gagal", str(exc), parent=self.root)
+            self._set_status(f"Export private key gagal: {exc}", error=True)
 
     def remove_key(self) -> None:
         if not self.public_key_var.get():
@@ -658,7 +612,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Tkinter: {tkinter.TkVersion}")
         print(f"Settings storage: {status['storage']}")
         print(f"Decoder key configured: {status['decoder_key_configured']}")
-        print(f"Allow-list configured: {status['allowlist_configured']}")
         return 0
 
     root = tk.Tk()

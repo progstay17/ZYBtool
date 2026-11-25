@@ -25,6 +25,7 @@ Implemented in the local source:
 - Current zyb-recording/v1 payload shape is checked strictly, including exact field set and the available session device_id comparison.
 - Decoder private key is protected with Windows DPAPI under the current Windows user profile; no plaintext fallback. CLI supports local key generation, concealed private-key import, public-key export, allow-list import, status and key removal.
 - JSON/CSV/HTML reports include QR status, signer, token ID and first-seen time when scanning is configured.
+- Approved output copies can enrich the existing camera session.json under zybtool.qr_metadata; native fields and source files are preserved. Verified QR output is blocked if the native session.json is missing or the enrichment namespace already exists. The manifest records both source and enriched output hashes.
 - Trust is deliberately capped at level 2 and reported as VERIFIED_WITH_WARNING. The remaining time/session/camera correlations and signed manifest are not claimed complete.
 
 ## Validation on local Windows workstation (2026-11-25)
@@ -57,7 +58,7 @@ Environment: Python 3.12.15, PyAV 19.0.2, Metaqr 0.4.0, OpenCV reader, NumPy, Ru
 Implemented foundation:
 - Reviewed plan and explicit operator confirmation before copy.
 - METADATA_ONLY recordings are copied under _UNNAMED/<recording-id>; no invented operational name.
-- Operational names are generated only from a valid QR payload at trust level 3+ and the configured AITQR fields; all other uncertain/invalid results are blocked.
+- QR metadata is supplemental to the camera's native session.json; verified payload is stored under zybtool.qr_metadata in the output copy only. Existing native keys are preserved; conflicts are blocked.
 - Original source folders are read-only; directory names and file bytes are preserved. Symlinks and special files are rejected.
 - SHA-256 is streamed before and after copy; source is re-hashed to detect changes. Existing/non-empty destinations and file collisions stop the operation; no overwrite.
 - Atomic staging directory, persisted output_plan.json, and local manifest with per-file hashes.
@@ -96,3 +97,19 @@ A standalone Windows x64 portable folder + ZIP is built with PyInstaller; the GU
 - AITQR was treated as a read-only contract dependency and was not modified.
 - ZYWtool and Metaqr were not modified.
 - The published source history is tracked in the project GitHub repository.
+
+
+## Update 2026-11-25 — Arrange MOVE dan Excel Export
+
+- Hand Check dan Preview Frames tidak termasuk scope ZYBTool.
+- Arrange Folder memakai MOVE, bukan copy. Ada preview/konfirmasi, penolakan destination collision, pemeriksaan struktur dan SHA-256, manifest unsigned, journal `move_journal.json`, dan Undo guarded.
+- Excel Export menulis ZY White, Cek File, Scan Audit, dan Rekonsiliasi; kolom manual QC/supervisor pada ZY White dipertahankan saat export ulang dan workbook lama di-backup.
+- Dependensi openpyxl==3.1.5 ditambahkan agar fitur Excel ikut dalam portable build.
+- Tes baru mencakup MOVE/Undo dan retensi kolom QC Excel.
+
+
+## Superseding update 2026-11-25 ? MQ1 encrypted-only
+
+The earlier MQ2/signature/allow-list implementation notes below are historical and no longer describe the active protocol. AITQR and ZYBTool now use Metaqr MQ1 encrypted-only. ZYBTool always scans the QR window; with no decoder private key it reports QR_DECRYPT_FAILED after detection, and with the matching private key it reports QR_DECRYPTED after payload/device-ID checks. There is no allow-list, per-staff signing key, signer identity, or replay log. MQ1 does not authenticate the QR creator. Settings now provide decoder key generate/import/export, public-key copy, and removal.
+
+Arrange Folder uses MOVE with hash verification, journal and Undo. Excel Export creates ZY White, Cek File, Scan Audit and Rekonsiliasi and preserves manual QC fields. Hand Check and Preview Frames are explicitly out of scope.

@@ -3,7 +3,7 @@
 Instruksi untuk agent coding. Singkat sengaja; detail ada di dokumen lain. **Baca dulu:** `PRD.md` (aturan bisnis, status), `ARCHITECTURE.md` (modul, algoritma). Jangan menurunkan ulang keputusan yang sudah tertulis di sana.
 
 ## 1. Status proyek
-Fondasi M1/M2 sudah diimplementasikan. Pemilik telah menyetujui implementasi desktop Settings sebagai irisan UI pertama (alur decoder key + allow-list). Lanjutkan hanya pada cakupan yang diminta; tahap M3/M4 dan layar desktop lain tetap nonaktif sampai disetujui.
+M1/M2 foundation and desktop Settings are active. M3 Arrange MOVE + Undo and Excel Export are approved and in scope. Hand Check and Preview Frames are explicitly out of scope. Continue only within user-approved scope.
 
 ## 2. Konvensi
 - Python (versi di-pin; lihat ARCHITECTURE §11), paket `zybtool`, type hint, dataclass `frozen`.
@@ -19,15 +19,15 @@ Fondasi M1/M2 sudah diimplementasikan. Pemilik telah menyetujui implementasi des
 
 ## 4. Keamanan
 - Jangan membuat ulang kriptografi; pakai Metaqr. Jangan ubah repo Metaqr atau ZYWtool (pakai sebagai dependensi ber-versi).
-- Jangan mencetak, mencatat, atau meng-commit: AccessKey/Secret, kunci privat, blob DPAPI, allowlist asli, nama petugas asli. Fixture wajib dianonimkan.
+- Jangan mencetak, mencatat, atau meng-commit: AccessKey/Secret, kunci privat, blob DPAPI, nama petugas asli. Fixture wajib dianonimkan.
 - Kredensial OSS hanya lewat environment proses anak; tidak di argv, disk, atau log. Dilarang `shell=True` dengan input terinterpolasi.
 - Validasi path (tanpa traversal, tanpa mengikuti symlink).
 - Tidak ada `VERIFIED` dari metadata saja. Level kepercayaan tidak boleh diklaim melebihi ARCHITECTURE §10.
 
 ## 5. Keselamatan file dan OSS (aturan keras)
-- Input **read-only**. Jangan rename, pindah, hapus, atau ubah file sumber.
+- Scan selalu read-only. Operasi **Arrange MOVE** hanya boleh memindahkan unit recording yang tercantum dalam plan setelah konfirmasi eksplisit; jangan mengubah/menghapus isi selain enrichment QR di output yang telah disetujui.
 - **Jangan pernah rename** `recording_primary_*` atau file/subfolder di dalamnya. Nama operasional hanya untuk folder induk baru.
-- Keluaran: salin + verifikasi SHA-256; tulis atomik (`.tmp` lalu rename). Tidak ada sufiks otomatis ` (n)`; bentrok → berhenti dan lapor.
+- Arrange: MOVE, bukan copy. Verifikasi struktur/hash sebelum dan sesudah perpindahan; simpan jurnal asal/tujuan dan sediakan Undo. Gagal di tengah harus rollback. Tidak ada overwrite atau suffix otomatis; bentrok → berhenti.
 - OSS: hanya `ls`, `stat`, `cp` ke prefix yang disetujui. Dilarang `rm`, `mv`, overwrite, `sync --delete`. Default dry-run; upload butuh persetujuan manusia atas `plan.json` setiap kali. Prefix produksi tidak dipakai di tes.
 - Operasi destruktif atau tak dapat dibatalkan (hapus massal, `git push --force`, `reset --hard`) dilarang kecuali diminta eksplisit.
 

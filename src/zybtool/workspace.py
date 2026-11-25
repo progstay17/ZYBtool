@@ -13,7 +13,8 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 from zybtool.models import ResultStatus
-from zybtool.output import create_output_plan, execute_output_plan
+from zybtool.operations import execute_move_plan, export_excel, undo_move
+from zybtool.output import create_output_plan
 from zybtool.pipeline import run_verification, write_report
 from zybtool.settings import data_dir
 
@@ -64,6 +65,7 @@ class WorkspaceMixin:
         self.output_path = tk.StringVar(value=str(Path.home() / "ZYB_Output"))
         self.output_queue: queue.Queue[Any] = queue.Queue()
         self.output_running = False
+        self.last_move_path: Path | None = None
         self.job_queue: queue.Queue[Any] = queue.Queue()
         self.job_running = False
         self.activity_entries: list[dict[str, str]] = []
@@ -199,7 +201,7 @@ class WorkspaceMixin:
         values = [
             ("FOLDERS DISCOVERED", str(len(report.units)) if report else "—"),
             ("RECORDINGS", str(len(report.recordings)) if report else "—"),
-            ("VERIFIED", str(counts[ResultStatus.VERIFIED]) if report else "—"),
+            ("QR DECRYPTED", str(counts[ResultStatus.QR_DECRYPTED]) if report else "?"),
             (
                 "NEEDS ATTENTION",
                 str(
@@ -209,8 +211,10 @@ class WorkspaceMixin:
                             ResultStatus.AMBIGUOUS,
                             ResultStatus.INCOMPLETE,
                             ResultStatus.METADATA_MISMATCH,
+                            ResultStatus.QR_DECRYPT_FAILED,
                             ResultStatus.CORRUPTED,
                             ResultStatus.QR_MISSING,
+                            ResultStatus.QR_DECRYPT_FAILED,
                         )
                     )
                 )
@@ -235,7 +239,7 @@ class WorkspaceMixin:
                 card,
                 text=value,
                 bg=SURFACE,
-                fg=GREEN if label == "VERIFIED" and report else TEXT,
+                fg=GREEN if label == "QR DECRYPTED" and report else TEXT,
                 font=(MONO, 24, "bold"),
             ).pack(anchor="w", pady=(8, 0))
         panel = self._panel(
@@ -326,11 +330,11 @@ class WorkspaceMixin:
         self._button(row2, "Browse", self._choose_report_dir).pack(side="right")
         run = self._panel(
             "3. Verification",
-            "Discovery · metadata · video timeline · QR/MQ2 (jika key dan allow-list tersedia) · grouping · reports",
+            "Discovery · metadata · video timeline · QR/MQ1 (selalu discan; dekripsi jika private key tersedia) · grouping · reports",
         )
         run.pack(fill="x", padx=34, pady=(0, 24))
         self.verify_status = tk.StringVar(
-            value="Siap. Trusted-device allow-list bersifat opsional."
+            value="Siap. QR terenkripsi MQ1 dipindai; private key hanya diperlukan untuk dekripsi."
         )
         tk.Label(
             run,
@@ -445,7 +449,7 @@ class WorkspaceMixin:
         )
         panel = self._panel(
             "Items requiring review",
-            "Ambiguous, incomplete, mismatch, QR missing, invalid signature, replay dan corruption.",
+            "Ambiguous, incomplete, mismatch, QR missing, dekripsi QR gagal, dan corruption.",
         )
         panel.pack(fill="both", expand=True, padx=34, pady=(0, 24))
         if not self.current_report:
@@ -469,9 +473,8 @@ class WorkspaceMixin:
             ResultStatus.METADATA_MISMATCH,
             ResultStatus.CORRUPTED,
             ResultStatus.QR_MISSING,
-            ResultStatus.INVALID_SIGNATURE,
-            ResultStatus.UNKNOWN_DEVICE,
-            ResultStatus.REPLAY_DETECTED,
+            ResultStatus.QR_DECRYPT_FAILED,
+            ResultStatus.QR_DECRYPT_FAILED,
         }
         rows = [r for r in self.current_report.recordings if r.status in statuses]
         if not rows:
@@ -564,12 +567,15 @@ class WorkspaceMixin:
         self._button(actions, "Open supervisor HTML", self._open_html_report, primary=True).pack(
             side="left", padx=(8, 0)
         )
+        self._button(actions, "Export Excel", self._export_excel, primary=True).pack(
+            side="left", padx=(8, 0)
+        )
         self._button(actions, "Copy report path", self._copy_report_path).pack(
             side="left", padx=(8, 0)
         )
         output_panel = self._panel(
-            "Local output preparation",
-            "Salin ke folder lokal baru, pertahankan nama dan isi folder sumber, lalu verifikasi SHA-256.",
+            "Arrange Folder · MOVE",
+            "Pindahkan recording ke folder tujuan, pertahankan struktur, verifikasi hash, dan sediakan Undo.",
         )
         output_panel.pack(fill="x", padx=34, pady=(0, 14))
         output_row = tk.Frame(output_panel, bg=SURFACE)
@@ -586,7 +592,7 @@ class WorkspaceMixin:
         self._button(output_row, "Browse", self._choose_output_dir).pack(side="right")
         tk.Label(
             output_panel,
-            text="METADATA_ONLY disalin ke _UNNAMED untuk keputusan operator. Nama operasional hanya dibuat dari QR tepercaya dengan trust level 3+ dan field AITQR yang lengkap. Recording ambigu/tidak lengkap/bermasalah diblokir. Manifest hash lokal belum ditandatangani.",
+            text="METADATA_ONLY dipindahkan ke _UNNAMED untuk keputusan operator. Nama operasional dibuat dari QR MQ1 yang berhasil didekripsi dan lolos korelasi device ID. QR tidak mengautentikasi pembuatnya. Recording ambigu/tidak lengkap/bermasalah diblokir. Manifest hash lokal belum ditandatangani.",
             bg=SURFACE,
             fg=SECONDARY,
             font=(FONT, 9),
@@ -600,9 +606,12 @@ class WorkspaceMixin:
         self.output_progress = ttk.Progressbar(output_panel, mode="indeterminate", length=360)
         self.output_progress.pack(anchor="w")
         self.output_button = self._button(
-            output_panel, "Preview & prepare local output", self._prepare_local_output, primary=True
+            output_panel, "Preview & Move Recordings", self._prepare_local_output, primary=True
         )
         self.output_button.pack(anchor="w", pady=(14, 0))
+        self._button(output_panel, "Undo last MOVE", self._undo_last_move, danger=True).pack(
+            anchor="w", pady=(8, 0)
+        )
         if self.output_running:
             self.output_button.configure(state="disabled")
             self.output_progress.start(12)
@@ -637,35 +646,37 @@ class WorkspaceMixin:
         if len(plan.items) > 10:
             folder_preview += f"\n  … dan {len(plan.items) - 10} folder lainnya"
         preview = (
-            f"Siap disalin: {len(plan.items)} recording\n"
+            f"Siap DIPINDAHKAN: {len(plan.items)} recording\n"
             f"Dengan nama operasional dari QR: {len(plan.items) - unnamed}\n"
             f"Masuk _UNNAMED: {unnamed}\n"
             f"Diblokir: {len(plan.blocked)}\n\n"
             f"Preview folder:\n{folder_preview}\n\n"
             f"Tujuan: {plan.destination}\n\n"
-            "Sumber tidak akan diubah. Folder tujuan harus baru/kosong. "
-            "Tidak ada overwrite. Lanjutkan penyalinan lokal?"
+            "Recording akan dipindahkan dari sumber. Folder tujuan harus baru/kosong. "
+            "Tidak ada overwrite; jurnal Undo akan dibuat. Lanjutkan MOVE?"
         )
         if plan.blocked:
             preview += "\n\nSebagian recording diblokir karena bukti belum cukup; lihat detail pada Review Queue."
         if not messagebox.askyesno(
-            "Konfirmasi penyalinan lokal", preview, icon="warning", parent=self.root
+            "Konfirmasi MOVE recording", preview, icon="warning", parent=self.root
         ):
             return
         self.output_running = True
         self.output_button.configure(state="disabled")
         self.output_progress.start(12)
-        self.output_status.set("Menyalin file dan memeriksa SHA-256. Jangan lepaskan media sumber.")
-        self._log_activity(f"Local output copy started: {plan.destination}")
+        self.output_status.set(
+            "Memindahkan folder dan memeriksa struktur/hash. Jangan tutup aplikasi."
+        )
+        self._log_activity(f"Arrange MOVE started: {plan.destination}")
 
         def worker() -> None:
             try:
-                result = execute_output_plan(plan, confirmed=True)
+                result = execute_move_plan(plan, confirmed=True)
                 self.output_queue.put(("success", result))
             except Exception as exc:
                 self.output_queue.put(("error", str(exc)))
 
-        threading.Thread(target=worker, name="zyb-output-copy", daemon=True).start()
+        threading.Thread(target=worker, name="zyb-output-move", daemon=True).start()
         self.root.after(150, self._poll_output_copy)
 
     def _poll_output_copy(self) -> None:
@@ -678,8 +689,9 @@ class WorkspaceMixin:
         if hasattr(self, "output_progress"):
             self.output_progress.stop()
         if kind == "success":
-            self._log_activity(f"Local output copy completed: {value}")
-            self._set_status("Output lokal selesai dan SHA-256 cocok.")
+            self.last_move_path = Path(value)
+            self._log_activity(f"Arrange MOVE completed: {value}")
+            self._set_status("Arrange MOVE selesai dan hash cocok. Undo tersedia.")
             if hasattr(self, "output_status"):
                 self.output_status.set(f"Selesai. Output: {value}")
                 self.output_button.configure(state="normal")
@@ -689,12 +701,75 @@ class WorkspaceMixin:
                 parent=self.root,
             )
         else:
-            self._log_activity(f"Local output copy failed: {value}", "ERROR")
+            self._log_activity(f"Arrange MOVE failed: {value}", "ERROR")
             self._set_status(f"Output lokal gagal: {value}", error=True)
             if hasattr(self, "output_status"):
                 self.output_status.set(f"Gagal: {value}")
                 self.output_button.configure(state="normal")
             messagebox.showerror("Output lokal gagal", str(value), parent=self.root)
+
+    def _export_excel(self) -> None:
+        if not self.current_report:
+            return
+        initial = (
+            (self.report_directory / "ZYB_Rekap.xlsx")
+            if self.report_directory
+            else (Path.home() / "ZYB_Rekap.xlsx")
+        )
+        selected = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Export Excel ZYBTool",
+            initialfile=initial.name,
+            initialdir=str(initial.parent),
+            defaultextension=".xlsx",
+            filetypes=[("Excel Workbook", "*.xlsx")],
+        )
+        if not selected:
+            return
+        try:
+            result = export_excel(self.current_report, selected)
+        except Exception as exc:
+            messagebox.showerror("Excel export gagal", str(exc), parent=self.root)
+            self._log_activity(f"Excel export failed: {exc}", "ERROR")
+            return
+        self._log_activity(f"Excel export completed: {result}")
+        self._set_status("Excel berhasil diekspor.")
+        messagebox.showinfo(
+            "Excel selesai",
+            f"Workbook berhasil dibuat/diperbarui:\n\n{result}\n\nSheet: ZY White, Cek File, Scan Audit, Rekonsiliasi. Kolom QC manual dipertahankan.",
+            parent=self.root,
+        )
+
+    def _undo_last_move(self) -> None:
+        candidate = getattr(self, "last_move_path", None)
+        if candidate is None:
+            selected = filedialog.askdirectory(
+                parent=self.root, title="Pilih folder hasil MOVE untuk Undo"
+            )
+            if not selected:
+                return
+            candidate = Path(selected)
+        if not messagebox.askyesno(
+            "Konfirmasi Undo MOVE",
+            f"Pindahkan kembali recording ke lokasi sumber asal?\n\n{candidate}\n\nUndo dibatalkan jika lokasi sumber sudah terisi atau tujuan berubah.",
+            icon="warning",
+            parent=self.root,
+        ):
+            return
+        try:
+            count = undo_move(candidate)
+        except Exception as exc:
+            messagebox.showerror("Undo MOVE gagal", str(exc), parent=self.root)
+            self._log_activity(f"Undo MOVE failed: {exc}", "ERROR")
+            return
+        self._log_activity(f"Undo MOVE completed: {count} recording from {candidate}")
+        self._set_status(f"Undo selesai: {count} recording dikembalikan.")
+        self.last_move_path = None
+        messagebox.showinfo(
+            "Undo selesai",
+            f"{count} folder recording dikembalikan ke lokasi asal.",
+            parent=self.root,
+        )
 
     def _open_report_folder(self) -> None:
         if self.report_directory and self.report_directory.exists():

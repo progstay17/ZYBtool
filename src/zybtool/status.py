@@ -111,14 +111,10 @@ def evaluate_status(
                     ),
                 )
 
-    # Metadata/video checks passed. A cryptographically verified MQ2 token raises
-    # trust only to level 2 until the remaining AITQR/session/time correlation gates exist.
+    # MQ1 proves confidentiality and successful decryption, not sender identity.
     if qr is not None:
-        if qr.status is ResultStatus.VERIFIED:
-            return qr.status, 2, qr.reasons
-        if qr.status is ResultStatus.VERIFIED_WITH_WARNING:
-            return qr.status, 2, qr.reasons
-        return qr.status, 0, qr.reasons or ("Bukti QR tidak dapat diverifikasi.",)
+        if qr.status is ResultStatus.QR_DECRYPTED:
+            return qr.status, 1, qr.reasons
+        return qr.status, 0, qr.reasons or ("QR tidak dapat didekripsi atau dikorelasikan.",)
 
-    # Metadata-only results must never imply provenance or trust.
-    return ResultStatus.METADATA_ONLY, 0, ("Belum ada bukti QR/MQ2 yang diverifikasi",)
+    return ResultStatus.METADATA_ONLY, 0, ("QR terenkripsi belum ditemukan.",)

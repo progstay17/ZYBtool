@@ -17,7 +17,6 @@ def test_gui_self_test_uses_local_settings(monkeypatch, capsys) -> None:
         lambda: {
             "storage": "C:/ZYBTool-test",
             "decoder_key_configured": False,
-            "allowlist_configured": False,
         },
     )
 

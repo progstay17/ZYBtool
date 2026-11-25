@@ -1,0 +1,19 @@
+{
+  "format": "aitqr-zybtool-mq1-v1",
+  "test_only": true,
+  "decoder_public_hex": "a31fea119a0e1e8b43cb666e507c6cc8062c25b9654df9bdce200418d1865128",
+  "decoder_private_hex": "0a65aa23f4e64f353f2fd6d9aac372de9bb3ddead368c1c406f72ebe20ac7597",
+  "payload": {
+    "p": "zyb-recording",
+    "pv": 1,
+    "s": "7QF3K9M2T8WX4R6B",
+    "r": "P-0427",
+    "sh": 1,
+    "b": "MM3201",
+    "l": "Ruang A",
+    "a": "Pemeriksaan",
+    "dn": "ZY001",
+    "di": "box-20260819-81e2"
+  },
+  "token": "MQ1:F13T%K$E3DVE3/E*%OYL7L.EOXJMKPA%VZJ6X/23-FV8MO CDHS.JEU.A 6K6+KDIF3619C1701HH7:MJ1 L9KD50EXLF43B.24/YOVGNRWF6+00R3STA16G 1HT86/96NPIPQB3$D37DD.EXASGQRU F.1K3PONMHGZN*:2+WO811C$GIMG-C6D*BS%2W9MCTB2H10UJ2KMKQEU9Q3/BMAOUK8YH2ATJV*UQIR+63913Y36U76AW3OLC 0BKZ4K:GPME%ETW8T65ECSI"
+}

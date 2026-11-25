@@ -1,7 +1,8 @@
-"""Camera-aware Metaqr scanning and strict MQ2 verification for recording segments."""
+"""Camera-aware scanning and encrypted-only MQ1 decryption for recording segments."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections import Counter
@@ -11,19 +12,10 @@ from typing import Any
 
 import av
 import metaqr
-from metaqr.errors import (
-    DecryptError,
-    InvalidSignatureError,
-    MetaQRError,
-    ReplayDetectedError,
-    RevokedDeviceError,
-    UnknownDeviceError,
-    UnsignedTokenError,
-)
+from metaqr.errors import MetaQRError
 from metaqr.qr import find_token
 
 from zybtool.models import QRVerification, RecordingResult, ResultStatus
-from zybtool.settings import load_allowlist, load_decoder_private_key
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,17 +163,10 @@ def verify_recording_qr(
     source_root: Path | str,
     *,
     private_key: bytes | None = None,
-    allowlist: Any | None = None,
-    replay_log: Any | None = None,
 ) -> QRVerification:
-    """Find and verify signed QR tokens; unsigned MQ1 is never accepted as trusted identity."""
-    if private_key is None:
-        private_key = load_decoder_private_key()
-    if allowlist is None:
-        allowlist = load_allowlist()
+    """Decrypt encrypted-only MQ1 tokens; sender identity is deliberately not asserted."""
     root = Path(source_root)
     best_error: QRVerification | None = None
-    replay = replay_log
     for segment in recording.segments:
         video_path = root / Path(segment.video.relative_path)
         meta_path = root / Path(segment.unit_path) / Path(segment.camera) / "meta.json"
@@ -197,121 +182,96 @@ def verify_recording_qr(
         candidates = sorted(scan.candidates, key=lambda pair: scan.first_seen_s.get(pair[0], 0.0))
         for token, votes in candidates:
             try:
-                verified = metaqr.verify(token, private_key, allowlist)
-            except ReplayDetectedError as exc:
+                version = metaqr.token_version(token)
+            except MetaQRError as exc:
                 best_error = QRVerification(
-                    ResultStatus.REPLAY_DETECTED,
-                    2,
+                    ResultStatus.QR_DECRYPT_FAILED,
                     source_video=segment.video.relative_path,
-                    time_s=scan.first_seen_s.get(token),
                     votes=votes,
                     reasons=(str(exc),),
                 )
                 continue
-            except UnknownDeviceError as exc:
+            if version != 1:
                 best_error = QRVerification(
-                    ResultStatus.UNKNOWN_DEVICE,
-                    2,
+                    ResultStatus.QR_DECRYPT_FAILED,
+                    token_version=version,
                     source_video=segment.video.relative_path,
                     time_s=scan.first_seen_s.get(token),
                     votes=votes,
-                    reasons=(str(exc),),
+                    reasons=(
+                        "Token MQ2 lama tidak didukung. AITQR harus menerbitkan QR terenkripsi MQ1.",
+                    ),
                 )
                 continue
-            except (
-                InvalidSignatureError,
-                RevokedDeviceError,
-                UnsignedTokenError,
-                DecryptError,
-                MetaQRError,
-            ) as exc:
-                best_error = QRVerification(
-                    ResultStatus.INVALID_SIGNATURE,
-                    2,
+            if private_key is None:
+                return QRVerification(
+                    ResultStatus.QR_DECRYPT_FAILED,
+                    token_version=1,
                     source_video=segment.video.relative_path,
                     time_s=scan.first_seen_s.get(token),
                     votes=votes,
-                    reasons=(f"Token ditolak Metaqr: {type(exc).__name__}: {exc}",),
+                    reasons=("QR MQ1 terdeteksi, tetapi private key decoder belum diimpor.",),
+                )
+            try:
+                payload = metaqr.decode(token, private_key)
+            except MetaQRError as exc:
+                best_error = QRVerification(
+                    ResultStatus.QR_DECRYPT_FAILED,
+                    token_version=1,
+                    source_video=segment.video.relative_path,
+                    time_s=scan.first_seen_s.get(token),
+                    votes=votes,
+                    reasons=(f"Dekripsi QR gagal: {type(exc).__name__}: {exc}",),
                 )
                 continue
-            valid, problems = validate_zyb_payload(verified.metadata)
+            valid, problems = validate_zyb_payload(payload)
             if not valid:
                 best_error = QRVerification(
                     ResultStatus.METADATA_MISMATCH,
-                    2,
-                    signer_device_id=verified.device.id,
-                    payload=verified.metadata,
+                    token_version=1,
+                    payload=payload,
                     source_video=segment.video.relative_path,
                     time_s=scan.first_seen_s.get(token),
                     votes=votes,
                     reasons=problems,
                 )
                 continue
-            if recording.device_id and verified.metadata["di"] != recording.device_id:
+            if recording.device_id and payload["di"] != recording.device_id:
                 best_error = QRVerification(
                     ResultStatus.METADATA_MISMATCH,
-                    2,
-                    signer_device_id=verified.device.id,
-                    payload=verified.metadata,
+                    token_version=1,
+                    payload=payload,
                     source_video=segment.video.relative_path,
                     time_s=scan.first_seen_s.get(token),
                     votes=votes,
                     reasons=(
-                        f"Payload device ID {verified.metadata['di']!r} tidak cocok dengan session {recording.device_id!r}",
+                        f"Payload device ID {payload['di']!r} tidak cocok dengan session {recording.device_id!r}",
                     ),
                 )
                 continue
-            if replay is not None:
-                try:
-                    replay.check_and_record(
-                        verified.token_id, recording.recording_id, verified.device.id
-                    )
-                except ReplayDetectedError as exc:
-                    best_error = QRVerification(
-                        ResultStatus.REPLAY_DETECTED,
-                        2,
-                        token_id=verified.token_id,
-                        signer_device_id=verified.device.id,
-                        payload=verified.metadata,
-                        source_video=segment.video.relative_path,
-                        time_s=scan.first_seen_s.get(token),
-                        votes=votes,
-                        reasons=(str(exc),),
-                    )
-                    continue
-            warnings = [
-                "Signature MQ2 dan allow-list valid; korelasi waktu/session lengkap masih menunggu kontrak final AITQR."
-            ]
-            if verified.retired:
-                warnings.append("Kunci penanda tangan berstatus retired.")
+            token_id = hashlib.sha256(token.encode("ascii")).hexdigest()[:16]
             return QRVerification(
-                ResultStatus.VERIFIED_WITH_WARNING,
-                2,
-                verified.token_id,
-                verified.device.id,
-                verified.metadata,
-                segment.video.relative_path,
-                scan.first_seen_s.get(token),
-                votes,
-                verified.retired,
-                tuple(warnings),
+                ResultStatus.QR_DECRYPTED,
+                token_version=1,
+                token_id=token_id,
+                payload=payload,
+                source_video=segment.video.relative_path,
+                time_s=scan.first_seen_s.get(token),
+                votes=votes,
+                reasons=(
+                    "QR terenkripsi MQ1 berhasil didekripsi; identitas pengirim tidak diverifikasi.",
+                ),
             )
     return best_error or QRVerification(
         ResultStatus.QR_MISSING,
-        reasons=("Tidak ada QR Metaqr valid yang ditemukan pada jendela pemindaian.",),
+        reasons=("Tidak ada QR terenkripsi Metaqr yang ditemukan pada jendela pemindaian.",),
     )
 
 
 def verify_with_saved_settings(
     recording: RecordingResult, source_root: Path | str
 ) -> QRVerification:
-    """Convenience entry point using this Windows user's protected settings."""
-    from metaqr import ReplayLog
+    """Convenience entry point using this Windows user's protected decoder key."""
+    from zybtool.settings import load_decoder_private_key
 
-    from zybtool.settings import data_dir
-
-    return verify_recording_qr(
-        recording,
-        source_root,
-        replay_log=ReplayLog(data_dir() / "replay.jsonl"),
-    )
+    return verify_recording_qr(recording, source_root, private_key=load_decoder_private_key())

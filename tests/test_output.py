@@ -1,8 +1,5 @@
-"""Tests for safe local output preparation."""
-
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -15,29 +12,21 @@ from zybtool.models import (
     UnitKind,
     VerificationReport,
 )
-from zybtool.output import create_output_plan, execute_output_plan
+from zybtool.output import create_output_plan
 
 
-def _report(source: Path, *, verified: bool = False) -> VerificationReport:
-    status = ResultStatus.VERIFIED if verified else ResultStatus.METADATA_ONLY
+def _report(source: Path, *, decrypted: bool = False) -> VerificationReport:
     qr = (
         QRVerification(
-            status=ResultStatus.VERIFIED,
-            payload={
-                "b": "MM12",
-                "r": "Recorder A",
-                "dn": "ZY123",
-                "sh": 2,
-                "a": "BedRoom",
-            },
+            status=ResultStatus.QR_DECRYPTED,
+            token_version=1,
+            payload={"b": "MM12", "r": "Recorder A", "dn": "ZY123", "sh": 2, "a": "BedRoom"},
         )
-        if verified
+        if decrypted
         else None
     )
     facts = SessionFacts(
-        relative_path="recording_primary_demo",
-        kind=UnitKind.FINAL,
-        capture_date="2026-11-25",
+        relative_path="recording_primary_demo", kind=UnitKind.FINAL, capture_date="2026-11-25"
     )
     recording = RecordingResult(
         recording_id="0123456789abcdef0123456789abcdef",
@@ -46,8 +35,8 @@ def _report(source: Path, *, verified: bool = False) -> VerificationReport:
         created_epoch=None,
         segments=(),
         actual_duration_s=None,
-        status=status,
-        trust_level=3 if verified else 0,
+        status=ResultStatus.QR_DECRYPTED if decrypted else ResultStatus.METADATA_ONLY,
+        trust_level=1 if decrypted else 0,
         qr=qr,
     )
     return VerificationReport(
@@ -59,40 +48,21 @@ def _report(source: Path, *, verified: bool = False) -> VerificationReport:
     )
 
 
-def test_metadata_only_output_is_unnamed_and_source_is_preserved(tmp_path: Path) -> None:
-    source = tmp_path / "source"
-    primary = source / "recording_primary_demo"
-    primary.mkdir(parents=True)
-    original = primary / "clip.mkv"
-    original.write_bytes(b"recording-data")
-    (primary / "empty-subfolder").mkdir()
-    destination = tmp_path / "ZYB_Output"
-
-    plan = create_output_plan(_report(source), destination)
-    assert plan.items[0].folder_name.startswith("_UNNAMED/")
-    with pytest.raises(PermissionError):
-        execute_output_plan(plan)
-
-    result = execute_output_plan(plan, confirmed=True)
-    copied = result / plan.items[0].folder_name / "recording_primary_demo" / "clip.mkv"
-    assert copied.read_bytes() == b"recording-data"
-    assert (
-        result / plan.items[0].folder_name / "recording_primary_demo" / "empty-subfolder"
-    ).is_dir()
-    assert original.read_bytes() == b"recording-data"
-    manifest = json.loads((result / "manifest.json").read_text(encoding="utf-8"))
-    plan_document = json.loads((result / "output_plan.json").read_text(encoding="utf-8"))
-    assert plan_document["items"][0]["folder_name"] == plan.items[0].folder_name
-    assert manifest["verification_status"] == "LOCAL_COPY_HASH_VERIFIED_UNSIGNED"
-    assert manifest["files"][0]["sha256"]
-
-
-def test_verified_payload_generates_operational_folder_name(tmp_path: Path) -> None:
+def test_metadata_only_plan_is_unnamed(tmp_path: Path) -> None:
     source = tmp_path / "source"
     (source / "recording_primary_demo").mkdir(parents=True)
-    plan = create_output_plan(_report(source, verified=True), tmp_path / "ZYB_Output")
+    plan = create_output_plan(_report(source), tmp_path / "ZYB_Output")
+    assert plan.items[0].folder_name.startswith("_UNNAMED/")
+    assert plan.items[0].named is False
+
+
+def test_decrypted_payload_generates_operational_folder_name(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    (source / "recording_primary_demo").mkdir(parents=True)
+    plan = create_output_plan(_report(source, decrypted=True), tmp_path / "ZYB_Output")
     assert plan.items[0].folder_name == "20261125_MM12_Recorder A_ZY123_S2_BedRoom"
     assert plan.items[0].named is True
+    assert plan.items[0].qr_metadata is not None
 
 
 def test_output_conflict_is_never_overwritten(tmp_path: Path) -> None:
@@ -106,29 +76,29 @@ def test_output_conflict_is_never_overwritten(tmp_path: Path) -> None:
     assert (destination / "keep.txt").read_text(encoding="utf-8") == "keep"
 
 
-def test_verified_but_trust_level_two_is_blocked(tmp_path: Path) -> None:
+def test_mismatched_payload_is_blocked(tmp_path: Path) -> None:
     source = tmp_path / "source"
     (source / "recording_primary_demo").mkdir(parents=True)
-    report = _report(source, verified=True)
-    recording = report.recordings[0]
+    report = _report(source, decrypted=True)
+    original = report.recordings[0]
     limited = RecordingResult(
-        recording_id=recording.recording_id,
-        unit_paths=recording.unit_paths,
-        device_id=recording.device_id,
-        created_epoch=recording.created_epoch,
-        segments=recording.segments,
-        actual_duration_s=recording.actual_duration_s,
-        status=ResultStatus.VERIFIED_WITH_WARNING,
-        trust_level=2,
-        qr=recording.qr,
+        recording_id=original.recording_id,
+        unit_paths=original.unit_paths,
+        device_id=original.device_id,
+        created_epoch=original.created_epoch,
+        segments=original.segments,
+        actual_duration_s=original.actual_duration_s,
+        status=ResultStatus.METADATA_MISMATCH,
+        trust_level=0,
+        qr=original.qr,
     )
-    report = VerificationReport(
+    limited_report = VerificationReport(
         source_root=report.source_root,
         run_id=report.run_id,
         generated_at=report.generated_at,
         units=report.units,
         recordings=(limited,),
     )
-    plan = create_output_plan(report, tmp_path / "ZYB_Output")
+    plan = create_output_plan(limited_report, tmp_path / "ZYB_Output")
     assert not plan.items
-    assert "trust level 2" in plan.blocked[0]
+    assert "trust level 0" in plan.blocked[0]

@@ -1,4 +1,4 @@
-"""DPAPI-protected per-user decoder settings and trusted Metaqr allow-list."""
+"""DPAPI-protected per-user X25519 decoder key settings."""
 
 from __future__ import annotations
 
@@ -201,52 +201,31 @@ def decoder_public_key_hex() -> str:
     return public_from_private(load_decoder_private_key()).hex()
 
 
-def import_allowlist(source: Path | str) -> tuple[Path, int]:
-    from metaqr import Allowlist
-
-    source_path = Path(source).expanduser().resolve(strict=True)
-    allowlist = Allowlist.load(source_path)
-    destination = data_dir() / "allowlist.json"
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(allowlist.to_dict(), indent=2, ensure_ascii=False) + "\n"
-    fd, temporary = tempfile.mkstemp(prefix="allowlist.", suffix=".tmp", dir=destination.parent)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(payload)
-        os.replace(temporary, destination)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(temporary)
-        raise
-    return destination, len(allowlist)
-
-
-def load_allowlist() -> Any:
-    from metaqr import Allowlist
-
-    path = data_dir() / "allowlist.json"
-    if not path.is_file():
-        raise RuntimeError(
-            "Allow-list MQ2 belum diimpor. Jalankan 'zybtool settings import-allowlist <file>'."
-        )
-    return Allowlist.load(path)
-
-
 def settings_status() -> dict[str, Any]:
     document = _load_document()
-    path = data_dir() / "allowlist.json"
-    devices = 0
-    if path.is_file():
-        from metaqr import Allowlist
-
-        devices = len(Allowlist.load(path))
     return {
         "decoder_key_configured": isinstance(document.get("decoder_private_key_dpapi"), str),
         "decoder_public_fingerprint": document.get("decoder_public_fingerprint"),
-        "allowlist_configured": path.is_file(),
-        "trusted_devices": devices,
         "storage": str(data_dir()),
     }
+
+
+def export_decoder_private_key(destination: Path | str) -> Path:
+    """Export a plaintext recovery copy only to a new, operator-selected file."""
+    private_key = load_decoder_private_key()
+    target = Path(destination).expanduser().resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="ascii", newline="\n") as handle:
+            handle.write(private_key.hex() + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        with contextlib.suppress(OSError):
+            target.unlink()
+        raise
+    return target
 
 
 def remove_decoder_private_key() -> None:

@@ -26,7 +26,7 @@ def _parser() -> argparse.ArgumentParser:
         "--output", type=Path, required=True, help="Folder terpisah untuk artefak laporan"
     )
 
-    settings = commands.add_parser("settings", help="Pengaturan key decoder dan allow-list Metaqr")
+    settings = commands.add_parser("settings", help="Pengaturan private key decoder MQ1")
     settings_commands = settings.add_subparsers(dest="settings_command", required=True)
     settings_commands.add_parser(
         "show", help="Tampilkan status pengaturan tanpa menampilkan key privat"
@@ -41,10 +41,10 @@ def _parser() -> argparse.ArgumentParser:
     settings_commands.add_parser(
         "export-public-key", help="Tampilkan public key untuk dipasang di AITQR"
     )
-    import_allowlist = settings_commands.add_parser(
-        "import-allowlist", help="Impor allow-list perangkat MQ2"
+    export_key = settings_commands.add_parser(
+        "export-private-key", help="Ekspor backup private key plaintext"
     )
-    import_allowlist.add_argument("file", type=Path)
+    export_key.add_argument("file", type=Path)
     settings_commands.add_parser("remove-decoder-key", help="Hapus private decoder key tersimpan")
 
     return parser
@@ -53,8 +53,8 @@ def _parser() -> argparse.ArgumentParser:
 def _run_settings(command: str, file: Path | None = None) -> int:
     from zybtool.settings import (
         decoder_public_key_hex,
+        export_decoder_private_key,
         generate_decoder_keypair,
-        import_allowlist,
         remove_decoder_private_key,
         set_decoder_private_key,
         settings_status,
@@ -82,12 +82,12 @@ def _run_settings(command: str, file: Path | None = None) -> int:
     if command == "export-public-key":
         print(decoder_public_key_hex())
         return 0
-    if command == "import-allowlist":
+    if command == "export-private-key":
         if file is None:
-            raise ValueError("File allow-list harus ditentukan.")
-        path, count = import_allowlist(file)
-        print(f"Allow-list diimpor: {count} perangkat tepercaya.")
-        print(f"Lokasi: {path}")
+            raise ValueError("Path file backup harus ditentukan.")
+        path = export_decoder_private_key(file)
+        print(f"Private key plaintext diekspor ke: {path}")
+        print("Simpan file ini di media terenkripsi dan jangan bagikan.")
         return 0
     if command == "remove-decoder-key":
         remove_decoder_private_key()

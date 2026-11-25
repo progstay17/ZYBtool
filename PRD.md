@@ -1,6 +1,6 @@
 # ZYB Tool — Product Requirements Document
 
-Status: **MVP desktop berjalan** · Tanggal: 2026-11-25 · M1/M2 pipeline dan workspace UI aktif; fondasi copy lokal M3 aktif dengan penamaan operasional tetap digate sampai kontrak AITQR final. Tidak ada fitur OSS Transfers.
+Status: **MVP desktop berjalan** · Tanggal: 2026-11-25 · M1/M2 pipeline dan workspace UI aktif; Arrange MOVE + Excel Export aktif. Penamaan operasional memakai payload MQ1 setelah dekripsi dan korelasi device ID. Tidak ada fitur OSS Transfers.
 Repo GitHub: `progstay17/ZYBtool` (terpisah dari AITQR).
 
 Legenda: **[F]** fakta terverifikasi dari inspeksi PC/OSS · **[A]** asumsi · **[?]** belum terverifikasi (harus diuji sebelum dipakai).
@@ -18,7 +18,7 @@ Produk ini hanya sisi **verifikasi, pengelompokan, persiapan output lokal, dan l
 
 **Goals**
 1. Administrator memasukkan folder recording; sistem menemukan, memverifikasi, mengelompokkan, dan melaporkan secara otomatis.
-2. Membaca QR MQ2 (Metaqr) yang diterbitkan AITQR dan mengikatnya ke recording yang benar.
+2. Membaca QR terenkripsi MQ1 (Metaqr) yang diterbitkan AITQR dan mengikat payload ke metadata recording.
 3. Pengelompokan session/segment akurat; ambigu ditandai `AMBIGUOUS`, tidak ditebak.
 4. Durasi dihitung dari bukti video/timestamp, bukan klaim metadata saja.
 5. Keluaran lokal: folder induk operasional baru yang membungkus `recording_primary_*` tanpa mengubahnya. Tidak ada upload atau koneksi OSS dari ZYBTool.
@@ -36,15 +36,15 @@ Produk ini hanya sisi **verifikasi, pengelompokan, persiapan output lokal, dan l
 
 | Peran | Tugas |
 |---|---|
-| Administrator | Memegang kunci privat decoder, allowlist, dan kunci tanda tangan manifest. Menjalankan verifikasi dan menyiapkan output lokal di PC. |
-| Supervisor | Membaca laporan dan memutuskan tindak lanjut untuk temuan non-VERIFIED. |
+| Administrator | Memegang kunci privat decoder dan kunci tanda tangan manifest (jika kelak diaktifkan). Tidak ada allow-list (tidak digunakan pada MQ1). Menjalankan verifikasi dan menyiapkan output lokal di PC. |
+| Supervisor | Membaca laporan dan memutuskan tindak lanjut untuk temuan non-QR_DECRYPTED. |
 | Petugas (aktor luar) | Menerbitkan QR lewat AITQR sebelum recording; tidak memakai ZYB Tool. |
 
 ## 4. Alur end-to-end
 
 ```mermaid
 flowchart LR
-  A[Petugas: AITQR menerbitkan QR MQ2] --> C[QR ditampilkan ke kamera, lalu recording]
+  A[Petugas: AITQR menerbitkan QR MQ1 terenkripsi] --> C[QR ditampilkan ke kamera, lalu recording]
   C --> D[Folder recording dikumpulkan di PC admin]
   D --> E[Discovery + parse metadata]
   E --> F[Scan QR di frame awal tiap mkv]
@@ -52,7 +52,7 @@ flowchart LR
   G --> H[Cek durasi aktual + integritas + hash]
   H --> I[Pengelompokan recording/segment]
   I --> J[Laporan + manifest bertanda tangan]
-  J --> K[Salin ke ZYB_Output/ folder operasional]
+  J --> K[Move ke ZYB_Output/ folder operasional]
 ```
 
 ## 5. Kebutuhan fungsional
@@ -62,20 +62,21 @@ flowchart LR
 | FR-01 | Discovery rekursif folder recording, **termasuk folder berawalan titik** (`.live_*`). |
 | FR-02 | Parse seluruh JSON (`session.json`, `session_sync.json`, `t0.json`, `stereo/meta.json`), log, CSV IMU; tandai file wajib yang hilang. |
 | FR-03 | Scan beberapa frame awal setiap mkv untuk QR (kedua mata, di luar band IMU). |
-| FR-04 | Verifikasi MQ2: dekripsi, allowlist, status device, signature, replay. |
+| FR-04 | Dekripsi MQ1 dengan private key decoder, validasi skema payload, dan korelasi device ID ke session. Tidak ada signature/allow-list (tidak digunakan pada MQ1)/replay. |
 | FR-05 | Validasi payload QR terhadap kontrak profil `zyb-recording` (skema dimiliki ZYB Tool, ditempatkan di AITQR sebagai konfigurasi). |
 | FR-06 | Korelasi QR dengan `session.json` dan identitas kamera (device_id, waktu, session). |
 | FR-07 | Hitung durasi aktual dari timeline video dan timestamp IMU/frametimes; bandingkan dengan klaim metadata. |
 | FR-08 | Pengelompokan segment ke recording dan ke kamera; urutkan dengan bukti temporal. Ambigu → `AMBIGUOUS`. |
 | FR-09 | Hash SHA-256 semua file dan manifest verifikasi bertanda tangan. |
-| FR-10 | Susun keluaran lokal `ZYB_Output/<operasional>/recording_primary_*/…` (salin, bukan pindah, secara default). |
-| FR-11 | Memvalidasi field payload QR yang dipakai AITQR untuk membentuk pola nama folder operasional. |
+| FR-10 | Arrange ke `ZYB_Output/<operasional>/recording_primary_*/…` dengan MOVE setelah preview dan konfirmasi; jurnal Undo wajib. |
+| FR-11 | Setelah QR MQ1 berhasil didekripsi dan device ID cocok, tambahkan metadata QR pada `session.json` di lokasi output setelah MOVE; pertahankan seluruh field native. |
 | FR-12 | Laporan per recording dan total (lihat §7) dalam JSON kanonik + tampilan yang bisa dibaca supervisor. |
+| FR-13 | Excel Export dengan sheet `ZY White`, `Cek File`, `Scan Audit`, `Rekonsiliasi`; pertahankan kolom QC manual dan buat backup saat export ulang. |
 
 ## 6. Kebutuhan non-fungsional
 
 - **Keamanan:** kunci privat decoder hanya di PC administrator; tidak ada kredensial OSS di ZYBTool; aplikasi sepenuhnya lokal/offline.
-- **Keamanan data input:** input hanya dibaca (read-only); tidak ada perubahan pada folder sumber.
+- **Keamanan data input:** scan read-only. Arrange MOVE hanya berjalan setelah preview + persetujuan eksplisit, dengan hash, jurnal dan Undo.
 - **Performa:** file 4+ GB; hashing/scan streaming, tidak memuat seluruh file ke memori. Target throughput [?] diukur pada PC admin.
 - **Reliabilitas:** setiap tahap dapat diulang tanpa efek samping; hasil deterministik untuk input yang sama.
 - **Offline:** verifikasi dan laporan berjalan sepenuhnya lokal/offline.
@@ -84,16 +85,16 @@ flowchart LR
 
 ## 7. Laporan dan status
 
-Isi laporan: recorder, device, lokasi/aktivitas, tanggal/waktu, jumlah recording, jumlah segment, durasi per recording dan total, status QR/signature, status metadata, status integritas, status pengurutan, kecocokan field penamaan, warning/rejection beserta alasan.
+Isi laporan: recorder, device, lokasi/aktivitas, tanggal/waktu, jumlah recording, jumlah segment, durasi per recording dan total, status dekripsi QR, status metadata, status integritas, status pengurutan, kecocokan field penamaan, warning/rejection beserta alasan.
 
 | Status | Makna |
 |---|---|
-| `VERIFIED` | QR valid + device trusted + korelasi session/kamera lolos + integritas video lolos + manifest bertanda tangan (Level 4). |
-| `VERIFIED_WITH_WARNING` | Seperti di atas, dengan warning non-kritis (mis. `iat` di tepi toleransi, retired key). |
-| `METADATA_ONLY` | Tidak ada QR; hanya metadata yang bisa diedit (Level 0). Tidak pernah menjadi `VERIFIED`. |
+| `QR_DECRYPTED` | QR MQ1 berhasil didekripsi dan payload lolos validasi dasar serta kecocokan device ID. Pengirim tidak diautentikasi (Level 1). |
+| `QR_DECRYPT_FAILED` | QR MQ1 ditemukan tetapi private key tidak tersedia atau dekripsi gagal. |
+| `METADATA_ONLY` | Tidak ada QR yang terdeteksi; hanya metadata kamera yang tersedia (Level 0). |
 | `QR_MISSING` | Segment/file tanpa QR sementara recording lain punya anchor tetapi korelasi tidak cukup. |
-| `INVALID_SIGNATURE` | Dekripsi/signature gagal. |
-| `UNKNOWN_DEVICE` | `kid` tidak ada di allowlist, atau status `revoked`. |
+| `METADATA_MISMATCH` | Payload tidak cocok dengan metadata native recording. |
+| `QR_MISSING` | Tidak ada token QR pada jendela scan. |
 | `REPLAY_DETECTED` | Token sama muncul di recording berbeda. |
 | `METADATA_MISMATCH` | QR/metadata/durasi tidak konsisten satu sama lain. |
 | `INCOMPLETE` | File/segment wajib hilang, folder `.live_*` tak terfinalisasi, atau log berhenti tanpa `stop`. |
@@ -106,11 +107,11 @@ Tingkat kepercayaan (Level 0–4) dan batas pembuktiannya ada di `ARCHITECTURE.m
 
 - **BR-01 (kritis):** nama folder `recording_primary_*` dan seluruh isinya **tidak pernah di-rename**. Nama operasional hanya diterapkan pada folder induk baru.
 - **BR-02:** struktur keluaran: `ZYB_Output/<NAMA_OPERASIONAL>/recording_primary_*/…`. Ini keputusan pemilik produk (2026-11-25). Catatan [F]: di contoh destination storage, isi primary berada langsung di folder operasional tanpa level `recording_primary_*`; kompatibilitas sistem hilir terhadap struktur output baru **[?] harus dikonfirmasi** sebelum dipakai operasional.
-- **BR-03:** nama operasional mengikuti pola yang ditemukan di OSS (`yyyymmdd_MM<kode>_<Recorder>_ZY<nnn>_S<n>_<Aktivitas>`, `ARCHITECTURE.md` §9); komponen berasal dari QR yang terverifikasi, bukan dari metadata yang bisa diedit. Recording tanpa QR terverifikasi tidak diberi nama operasional otomatis; ditempatkan di `ZYB_Output/_UNNAMED/` untuk keputusan operator.
+- **BR-03:** session.json kamera adalah dokumen utama. QR MQ1 yang berhasil didekripsi dan lolos korelasi device ID hanya melengkapi session.json di folder output setelah MOVE; seluruh metadata native dipertahankan. Metadata QR tidak boleh mengganti device_id, waktu capture, atau field native lain. Nama folder pembungkus output mengikuti pola operasional dari payload MQ1 yang telah didekripsi.
 - **BR-04:** QR valid tidak otomatis membuktikan recording asli; harus dikorelasikan dengan kamera, waktu, segment, dan hash.
 - **BR-05:** segment tanpa QR tidak otomatis recording baru; dicocokkan lewat metadata. Kandidat ganda → `AMBIGUOUS`.
 - **BR-06:** recording dari device/session berbeda tidak digabung hanya karena waktunya berdekatan.
-- **BR-07:** tidak ada status `VERIFIED` dari metadata saja.
+- **BR-07:** tidak ada status `QR_DECRYPTED` dari metadata saja.
 - **BR-08:** tidak ada auto-suffix ` (2)`; bentrokan nama → berhenti dan minta keputusan operator.
 - **BR-09:** ZYBTool tidak melakukan koneksi ke OSS, tidak membaca bucket, dan tidak mengunggah/mengunduh objek. Pola nama folder yang pernah diamati hanya menjadi referensi format untuk kontrak AITQR.
 - **BR-10:** folder `.live_*` tak terfinalisasi tidak otomatis dimasukkan ke output operasional.
@@ -121,12 +122,12 @@ Tingkat kepercayaan (Level 0–4) dan batas pembuktiannya ada di `ARCHITECTURE.m
 |---|---|
 | AC-01 | Sampel 1 (`sample1_flat fixture`): 1 recording, 1 segment, synthetic device identifier, durasi sintetis yang konsisten dengan fixture, status `METADATA_ONLY`. |
 | AC-02 | Sampel 2: primary `the finalized primary fixture` = 1 recording, 1 segment, synthetic duration. Dua folder `.live_*` (separate synthetic live-device identifier) **tidak** digabung ke `synthetic finalized fixture` dan dilaporkan `INCOMPLETE` dengan alasan. |
-| AC-03 | Tanpa QR, tidak ada hasil `VERIFIED` pada kondisi apa pun. |
+| AC-03 | Tanpa QR terdekripsi, tidak ada hasil `QR_DECRYPTED` pada kondisi apa pun. |
 | AC-04 | Token yang sama pada dua segment satu recording → bukan replay; pada dua recording berbeda → `REPLAY_DETECTED`. |
-| AC-05 | `session.json` diubah (durasi/waktu) → `METADATA_MISMATCH` atau `CORRUPTED`, bukan `VERIFIED`. |
-| AC-06 | Keluaran lokal: nama folder primary dan hash SHA-256 setiap file identik dengan sumber; sumber tidak berubah. |
+| AC-05 | `session.json` diubah (durasi/waktu) → `METADATA_MISMATCH` atau `CORRUPTED`, bukan `QR_DECRYPTED`. |
+| AC-06 | Keluaran MOVE mempertahankan nama folder primary, hierarki, dan hash SHA-256 seluruh file; jurnal mencatat asal/tujuan. |
 | AC-07 | Menjalankan ulang pipeline dan persiapan output menghasilkan keluaran identik, tanpa duplikat atau sufiks `(n)`. |
-| AC-08 | Penyalinan lokal dihentikan lalu diulang: sumber tidak berubah dan hasil diverifikasi ulang. |
+| AC-08 | MOVE gagal di tengah: semua perpindahan yang sudah selesai di-rollback; Undo menolak bentrok dan mengembalikan sumber. |
 | AC-09 | Laporan memuat semua field §7 dan alasan tiap warning/rejection. |
 | AC-10 | Satu folder berisi recording dari 2 device → 2 recording terpisah. |
 | AC-11 | QR dari AITQR (vektor uji bersama) terbaca dan lolos verifikasi pada video uji sintetis. |
@@ -143,7 +144,7 @@ Tingkat kepercayaan (Level 0–4) dan batas pembuktiannya ada di `ARCHITECTURE.m
 | `nb_frames = 0` di `session_sync.json` [F] | Diabaikan sebagai bukti. |
 | QR terbaca tapi bukan milik recording (rekam ulang/screenshot) | Korelasi waktu/device gagal → `METADATA_MISMATCH`/`REPLAY_DETECTED`. |
 | Jam HP vs jam kamera berbeda | `iat` hanya klaim; toleransi konfigurabel, di luar toleransi → warning/mismatch. |
-| Kunci device hilang (diatur AITQR) | Device baru + entri allowlist baru; token lama valid selama entri lama aktif. |
+| Private key decoder hilang | QR lama tidak dapat didekripsi; pulihkan private key dari backup aman. |
 | File berubah setelah verifikasi | Hash manifest tidak cocok → `CORRUPTED`; wajib verifikasi ulang. |
 | Disk penuh / koneksi putus | Tulis atomik (`.tmp` lalu rename), penyalinan dapat diulang tanpa mengubah sumber. |
 | Nama operasional bentrok | Berhenti, minta keputusan operator; tidak ada auto-suffix. |
@@ -155,9 +156,9 @@ Rekaman saat ini **belum memuat QR** (konfirmasi pemilik), jadi urutan dimulai d
 | Tahap | Isi | Keluaran |
 |---|---|---|
 | M1 | Discovery, parser metadata, scanner video (timeline/durasi), grouper, laporan. Tanpa QR → `METADATA_ONLY`. | Laporan atas sampel nyata. |
-| M2 | Scanner QR + verifikasi MQ2 (vektor uji Metaqr/AITQR) + korelasi + manifest bertanda tangan. | Level 3–4. |
-| M3 | Penyusun folder keluaran (salin + verifikasi hash). | `ZYB_Output/`. |
-| Roadmap | Allowlist bertanda tangan, rotasi kunci decoder, antarmuka supervisor, integrasi API perangkat (bila protokol terbukti). | — |
+| M2 | Scanner QR + dekripsi MQ1 (vektor uji Metaqr/AITQR) + korelasi metadata dasar. | Level 1; sender tidak diautentikasi. |
+| M3 | Arrange MOVE + Undo journal, Excel Export ala ZYWTool. | `ZYB_Output/` + workbook. |
+| Roadmap | Rotasi kunci decoder, antarmuka supervisor, manifest bertanda tangan, integrasi API perangkat (bila diperlukan). | — |
 
 Ketergantungan: M2 butuh rilis awal AITQR (atau vektor uji sintetis) untuk QR nyata.
 
@@ -166,9 +167,14 @@ Ketergantungan: M2 butuh rilis awal AITQR (atau vektor uji sintetis) untuk QR ny
 | ID | Pertanyaan | Catatan |
 |---|---|---|
 | D1 | Compatibility of downstream consumers with the additional primary-recording folder level. | [?] Must be validated in a non-production environment. |
-| D2 | Sumber kode `MM<kode>` dan nomor `ZY<nnn>`. | Tidak ada di `session.json`; harus masuk payload QR (profil AITQR). |
+| D2 | Metadata AITQR yang belum ada di session.json kamera. | Disimpan sebagai pelengkap pada zybtool.qr_metadata, tanpa menimpa field native. |
 | D3 | Template/normalisasi nama operasional (location suffix, ejaan, panjang nama). | Variasi nyata di OSS. |
-| D4 | Salin vs pindah ke `ZYB_Output`. | Default: salin. |
+| D4 | Salin vs pindah ke `ZYB_Output`. | Diputuskan: MOVE dengan jurnal dan Undo. |
 | D5 | Toleransi selisih `iat` terhadap waktu kamera. | Konfigurabel. |
-| D6 | Kontrak akhir pemetaan field AITQR ke nama folder operasional. | Dikonfigurasi pada AITQR, bukan melalui koneksi OSS dari ZYBTool. |
+| D6 | Kontrak akhir pemetaan field QR ke metadata pelengkap session.json. | Disepakati bersama AITQR; QR hanya melengkapi dokumen native. |
 | D7 | Nama repo GitHub. | Usulan `ZYBTool`. |
+
+
+## Keputusan protokol 2026-11-25
+
+ZYBTool dan AITQR memakai Metaqr MQ1 encrypted-only. AITQR tidak membuat keypair Ed25519 per petugas, tidak menerbitkan allow-list, dan tidak menandatangani QR. ZYBTool hanya membutuhkan private key X25519 untuk mendekripsi. `QR_DECRYPTED` tidak menyatakan identitas pembuat QR; public key yang tersebar memungkinkan siapa pun membuat token terenkripsi. Tanda tangan Ed25519 tetap dipakai hanya untuk integritas bundle konfigurasi admin AITQR, bukan QR operasional.

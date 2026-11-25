@@ -3,7 +3,7 @@
 **Direction:** Cyber Operations / Field Data Verification  
 **Mood:** black graphite, restrained signal-green, precise instrumentation, industrial software.  
 **Purpose:** desktop application for inspecting, verifying, grouping, preparing local output and reporting camera recordings.
-**Status:** Workspace navigation, verification, review, local reports, guarded output copy and Security & Keys settings are implemented. Manifest signing and final trust-level correlation remain gated.
+**Status:** Workspace navigation, metadata/video verification, MQ1 decryption, local reports, guarded output MOVE, Excel Export and Decoder Settings are implemented. MQ1 does not authenticate the QR creator; manifest signing is not implemented.
 
 ## 1. Design intent
 
@@ -32,13 +32,13 @@ Keep the interface dark, calm, information-dense and readable. Green is a functi
 | text-primary | #E8F0E9 | Main text |
 | text-secondary | #A0B0A4 | Supporting text |
 | text-muted | #718176 | Quiet labels |
-| signal-green | #A3F36B | Primary action, verified state, focus |
+| signal-green | #A3F36B | Primary action, decrypted QR state, focus |
 | signal-green-deep | #5DBB45 | Secondary accent |
 | warning | #F2B84B | Warnings |
 | danger | #FF6B68 | Invalid, destructive or failed |
 | info | #77B9D8 | Informational state |
 
-Reserve the brightest green for primary action, keyboard focus, selected navigation and verified evidence. Do not make every button green. Avoid large neon glows.
+Reserve the brightest green for primary action, keyboard focus, selected navigation and decrypted QR evidence. Do not make every button green. Avoid large neon glows.
 
 ### Typography
 
@@ -81,7 +81,7 @@ Use explicit labels. Active navigation gets a muted green surface and a narrow g
 This is an operational dashboard, not a marketing dashboard.
 
 - Primary action: New verification.
-- Compact real metrics: folders discovered, recordings verified, attention required, naming profile status. Use actual persisted job data; show an em dash if unavailable.
+- Compact real metrics: folders discovered, recordings with decrypted QR, attention required, naming profile status. Use actual persisted job data; show an em dash if unavailable.
 - Recent jobs table: source, date, recordings, result, output destination, last activity.
 - Attention queue: actionable items such as AMBIGUOUS, INCOMPLETE, METADATA_MISMATCH and failed transfers.
 - Empty state explains how to start. Never show fabricated sample counts.
@@ -97,7 +97,7 @@ Source → Discover → Verify → Review → Prepare output.
 - Discover: show final/live/partial folders and file counts. Include hidden .live_* folders.
 - Verify: show actual progress for metadata, video timeline, QR, grouping and hashes.
 - Review: list grouped recordings and issues; never hide warnings behind one green success state.
-- Prepare output: preview exact folder tree and destination before copying.
+- Prepare output: preview exact folder tree and destination before MOVE.
 
 Allow safe navigation between stages without losing completed results. Pause/cancel only where technically safe.
 
@@ -107,13 +107,13 @@ The results table is the core screen. Columns:
 Status, operational identity/recorder, camera device, session ID, segments, actual duration, QR evidence, metadata consistency, integrity, action.
 
 Status must include text and icon; color is supplementary:
-- VERIFIED: green + check.
-- VERIFIED_WITH_WARNING: amber.
+- QR_DECRYPTED: green + lock/decrypt indicator (not sender authentication).
+- QR_DECRYPT_FAILED: amber.
 - METADATA_ONLY: neutral blue/grey; never green.
 - AMBIGUOUS, INCOMPLETE, METADATA_MISMATCH: amber.
-- INVALID_SIGNATURE, UNKNOWN_DEVICE, REPLAY_DETECTED, CORRUPTED: red.
+- METADATA_MISMATCH, CORRUPTED: red.
 
-Row detail shows evidence summary, trust level, QR/device evidence, session facts, segment timeline, actual-vs-claimed duration, SHA-256 status and exact reasons for warnings/rejections. Never reduce trust to an unexplained percentage.
+Row detail shows evidence summary, decryption state, QR/device correlation evidence, session facts, segment timeline, actual-vs-claimed duration, SHA-256 status and exact reasons for warnings/rejections. Never reduce trust to an unexplained percentage.
 
 ### Review Queue
 
@@ -129,8 +129,8 @@ No one-click “fix all” for evidence conflicts.
 - Show exact destination and readable output tree preview.
 - Preserve original recording_primary_* directory names and all contents.
 - Distinguish source folders from newly created operational parent folders.
-- Default is copy, never silently move or rename source data.
-- Show copy progress, verification result and skipped items.
+- Arrange uses MOVE only after explicit preview and confirmation; preserve the native recording folder name and hierarchy.
+- Show MOVE progress, SHA-256 verification result and skipped items.
 - Supervisor summary first; expandable technical evidence second.
 
 ### Naming reference
@@ -143,7 +143,7 @@ Chronological, searchable and filterable. Show severity, timestamp, job ID and m
 
 ### Settings
 
-Group Storage & OSS, Verification, Output Naming, Security & Keys, Appearance and Diagnostics. Use explicit browse buttons and inline path validation. No unexplained default paths. Mask secrets and never log them.
+Group Storage & OSS, Verification, Output Naming, Decoder Settings, Appearance and Diagnostics. Use explicit browse buttons and inline path validation. No unexplained default paths. Mask secrets and never log them.
 
 ## 5. Interaction rules
 
@@ -192,7 +192,7 @@ Each component supports relevant loading, empty, success, warning, error and dis
 ## 10. Product-specific constraints
 
 - Evidence and reasons are more important than decorative metrics.
-- METADATA_ONLY must never look equivalent to VERIFIED.
+- METADATA_ONLY must never look equivalent to QR_DECRYPTED.
 - AMBIGUOUS invites review, not automatic grouping.
 - Source data is read-only; show this during source selection and output preview.
 - Explain QR/crypto details without hiding technical audit evidence.
@@ -203,8 +203,8 @@ Each component supports relevant loading, empty, success, warning, error and dis
 
 - [ ] Professional dark operations tool at first glance.
 - [ ] Green is a restrained signal, not a full-screen glow.
-- [ ] Supervisor can distinguish verified, warning and rejected recordings at a glance.
-- [ ] Operator can understand why a result is not verified.
+- [ ] Supervisor can distinguish decrypted, undecrypted, mismatched and rejected recordings at a glance.
+- [ ] Operator can understand why a QR was not decrypted or correlated.
 - [ ] Source/output distinction and original folder preservation are unmistakable.
 - [ ] No OSS credentials, bucket browser, upload, download or transfer controls exist in ZYBTool.
 - [ ] Tables remain readable at 1280×800 and 1024×700.

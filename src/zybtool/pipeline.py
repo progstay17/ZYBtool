@@ -27,47 +27,19 @@ def _verify_qr_if_configured(
     units: tuple[Unit, ...],
     source: Path,
 ) -> tuple[RecordingResult, ...]:
-    from metaqr import ReplayLog
-
     from zybtool.qrscan import verify_recording_qr
-    from zybtool.settings import (
-        data_dir,
-        load_allowlist,
-        load_decoder_private_key,
-        settings_status,
-    )
+    from zybtool.settings import load_decoder_private_key, settings_status
 
     settings = settings_status()
-    # Trusted-device pairing is optional. Without an allow-list, keep the normal
-    # metadata/video verification path running and simply skip cryptographic QR checks.
-    if not settings["decoder_key_configured"] or not settings["allowlist_configured"]:
-        return recordings
-
-    private_key = load_decoder_private_key()
-    allowlist = load_allowlist()
-    replay_log = ReplayLog(data_dir() / "replay.jsonl")
+    private_key = load_decoder_private_key() if settings["decoder_key_configured"] else None
     by_path = {unit.facts.relative_path: unit.facts for unit in units}
-    verified = []
+    results = []
     for recording in recordings:
-        qr = verify_recording_qr(
-            recording,
-            source,
-            private_key=private_key,
-            allowlist=allowlist,
-            replay_log=replay_log,
-        )
+        qr = verify_recording_qr(recording, source, private_key=private_key)
         facts = tuple(by_path[path] for path in recording.unit_paths if path in by_path)
         status, level, reasons = evaluate_status(facts, recording.segments, qr=qr)
-        verified.append(
-            replace(
-                recording,
-                status=status,
-                trust_level=level,
-                reasons=reasons,
-                qr=qr,
-            )
-        )
-    return tuple(verified)
+        results.append(replace(recording, status=status, trust_level=level, reasons=reasons, qr=qr))
+    return tuple(results)
 
 
 def run_verification(
@@ -115,8 +87,7 @@ def run_verification(
                 ResultStatus.AMBIGUOUS,
                 ResultStatus.QR_MISSING,
                 ResultStatus.INVALID_SIGNATURE,
-                ResultStatus.UNKNOWN_DEVICE,
-                ResultStatus.REPLAY_DETECTED,
+                ResultStatus.QR_DECRYPT_FAILED,
             }
             else "info",
             subject=item.recording_id,

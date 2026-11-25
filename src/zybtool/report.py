@@ -9,7 +9,7 @@ from dataclasses import asdict
 from enum import Enum
 from typing import Any
 
-from zybtool.models import VerificationReport
+from zybtool.models import ResultStatus, VerificationReport
 from zybtool.util import canonical_json_bytes
 
 
@@ -45,7 +45,7 @@ def report_csv(report: VerificationReport) -> bytes:
             "segment_count",
             "actual_duration_s",
             "qr_status",
-            "qr_signer_device_id",
+            "qr_sender_authentication",
             "qr_token_id",
             "qr_time_s",
             "reasons",
@@ -62,7 +62,9 @@ def report_csv(report: VerificationReport) -> bytes:
                 len(item.segments),
                 "" if item.actual_duration_s is None else f"{item.actual_duration_s:.3f}",
                 qr.status.value if qr else "",
-                (qr.signer_device_id or "") if qr else "",
+                "Tidak diautentikasi (MQ1)"
+                if qr and qr.status is ResultStatus.QR_DECRYPTED
+                else "",
                 (qr.token_id or "") if qr else "",
                 "" if not qr or qr.time_s is None else f"{qr.time_s:.3f}",
                 " | ".join(item.reasons),
@@ -82,7 +84,9 @@ def report_html(report: VerificationReport) -> bytes:
         )
         qr = item.qr
         qr_status = html.escape(qr.status.value if qr else "BELUM_DIPINDAI")
-        signer = html.escape(qr.signer_device_id or "—") if qr else "—"
+        signer = (
+            "Tidak diautentikasi (MQ1)" if qr and qr.status is ResultStatus.QR_DECRYPTED else "-"
+        )
         qr_time = f"{qr.time_s:.3f} s" if qr and qr.time_s is not None else "—"
         rows.append(
             "<tr>"
@@ -109,7 +113,7 @@ table{{width:100%;border-collapse:collapse}}th,td{{text-align:left;padding:12px;
 <h1>ZYB Tool — Laporan Verifikasi</h1>
 <div class="muted">Run {html.escape(report.run_id)} · Dibuat {html.escape(report.generated_at)}</div>
 <div class="panel"><div class="muted">Folder sumber (read-only)</div><code>{source}</code>
-<p class="notice">Level kepercayaan QR/MQ2 dibatasi sampai level 2. Korelasi session, kamera, dan waktu belum dianggap lengkap hingga kontrak AITQR final diuji.</p></div>
-<div class="panel"><table><thead><tr><th>Status</th><th>Recording</th><th>Device</th><th>Segment</th><th>Durasi aktual</th><th>Bukti QR/MQ2</th><th>Alasan / temuan</th></tr></thead>
+<p class="notice">QR MQ1 berhasil didekripsi bila status QR_DECRYPTED. Format MQ1 tidak mengautentikasi identitas pembuat QR.</p></div>
+<div class="panel"><table><thead><tr><th>Status</th><th>Recording</th><th>Device</th><th>Segment</th><th>Durasi aktual</th><th>Bukti QR/MQ1</th><th>Alasan / temuan</th></tr></thead>
 <tbody>{body}</tbody></table></div></main></body></html>"""
     return page.encode("utf-8")
