@@ -26,14 +26,20 @@ def _valid_payload(device_id: str = "fixture-device-001") -> dict[str, object]:
     }
 
 
-def test_payload_contract_validation() -> None:
+def test_payload_contract_validation_accepts_account_configured_fields() -> None:
     ok, reasons = validate_zyb_payload(_valid_payload())
     assert ok and not reasons
+
     payload = _valid_payload()
-    payload["unexpected"] = "not allowed"
+    payload["operator"] = "Fadhil"
+    payload["site_code"] = "SITE01"
+    payload["custom_profile_flag"] = False
     ok, reasons = validate_zyb_payload(payload)
+    assert ok and not reasons
+
+    ok, reasons = validate_zyb_payload({})
     assert not ok
-    assert "Field payload" in reasons[0]
+    assert "kosong" in reasons[0]
 
 
 def test_metaqr_mq1_is_encrypted_and_needs_only_decoder_private_key() -> None:
