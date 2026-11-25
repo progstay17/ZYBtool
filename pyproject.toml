@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zybtool"
-version = "0.2.2"
+version = "0.2.3"
 description = "Offline camera recording verification and local reporting tool"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "av==19.0.2",
   "openpyxl==3.1.5",
-  "metaqr[reader] @ git+https://github.com/progstay17/Metaqr.git@baae37471201b3ae3477d0cf0dcb8ffd26e4dc76",
+  "metaqr[reader] @ git+https://github.com/progstay17/Metaqr.git@4641544f616dcb2758cbedd089521dda9ec87aab",
 ]
 
 [project.optional-dependencies]
