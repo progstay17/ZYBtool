@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import cv2
 import metaqr
@@ -39,9 +40,10 @@ def test_decode_token_rejects_wrong_private_key() -> None:
 
 def test_decode_token_rejects_non_object_payload() -> None:
     keypair = metaqr.generate_keypair()
-    token = metaqr.encode(["not", "an", "object"], keypair.public)
-    with pytest.raises(ValueError, match="bukan JSON object"):
-        decode_token(token, keypair.private)
+    token = metaqr.encode(_payload(), keypair.public)
+    with patch("zybtool.qrdecoder.metaqr.decode", return_value=["not", "an", "object"]):
+        with pytest.raises(ValueError, match="bukan JSON object"):
+            decode_token(token, keypair.private)
 
 
 def test_decode_qr_image_scans_and_decrypts(tmp_path: Path) -> None:
