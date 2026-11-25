@@ -139,8 +139,15 @@ class ZYBToolApp:
 
         tk.Frame(sidebar, bg=LINE, height=1).pack(side="bottom", fill="x", padx=16, pady=(0, 14))
         tk.Label(
+            sidebar,
+            text="Fadhil Ghifarion " + chr(0x6CD5) + chr(0x8FEA) + " for AIT",
+            bg=SIDEBAR,
+            fg=SECONDARY,
+            font=(FONT, 8, "bold"),
+        ).pack(side="bottom", anchor="w", padx=22, pady=(0, 4))
+        tk.Label(
             sidebar, text=f"ZYBTool  v{__version__}", bg=SIDEBAR, fg=MUTED, font=(MONO, 8)
-        ).pack(side="bottom", anchor="w", padx=22, pady=(0, 12))
+        ).pack(side="bottom", anchor="w", padx=22, pady=(0, 8))
 
         topbar = tk.Frame(self.root, bg=BG, height=62)
         topbar.grid(row=0, column=1, sticky="ew")
