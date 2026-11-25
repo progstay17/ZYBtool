@@ -144,7 +144,7 @@ def execute_move_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
         (staging / "output_plan.json").write_text(
             json.dumps(output_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
-        (staging / "`move_journal.json`").write_text(
+        (staging / "move_journal.json").write_text(
             json.dumps(journal, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         manifest = {
@@ -177,7 +177,7 @@ def execute_move_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
 
 def undo_move(output_folder: Path | str) -> int:
     root = Path(output_folder).resolve(strict=True)
-    journal_path = root / "`move_journal.json`"
+    journal_path = root / "move_journal.json"
     if not journal_path.is_file():
         raise FileNotFoundError("Jurnal MOVE tidak ditemukan.")
     journal = json.loads(journal_path.read_text(encoding="utf-8"))
