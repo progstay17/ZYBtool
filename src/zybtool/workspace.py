@@ -49,7 +49,9 @@ def load_preferences() -> dict[str, Any]:
                 values[key] = loaded[key].strip()
         naming = loaded.get("naming")
         if isinstance(naming, dict):
-            stored_map = naming.get("field_map") if isinstance(naming.get("field_map"), dict) else {}
+            stored_map = (
+                naming.get("field_map") if isinstance(naming.get("field_map"), dict) else {}
+            )
             values["naming"] = {
                 **values["naming"],
                 "source_json": str(naming.get("source_json") or "").strip(),
@@ -76,7 +78,9 @@ def save_preferences(values: dict[str, Any]) -> None:
     clean["naming"] = {
         "source_json": str(naming.get("source_json") or "").strip(),
         "template": template,
-        "field_map": {token: str(field_map.get(token) or DEFAULT_FIELD_MAP[token]) for token in TOKENS},
+        "field_map": {
+            token: str(field_map.get(token) or DEFAULT_FIELD_MAP[token]) for token in TOKENS
+        },
         "no_shift": bool(naming.get("no_shift", False)),
     }
     temporary = path.with_suffix(".json.tmp")
@@ -772,7 +776,9 @@ class WorkspaceMixin:
             )
             return
         try:
-            plan = create_output_plan(self.current_report, Path(destination), self.naming_preferences)
+            plan = create_output_plan(
+                self.current_report, Path(destination), self.naming_preferences
+            )
         except Exception as exc:
             messagebox.showerror("Output plan gagal", str(exc), parent=self.root)
             return
@@ -1004,7 +1010,9 @@ class WorkspaceMixin:
             )
             if selected:
                 source_json_var.set(str(Path(selected).resolve()))
-        self._button(source_row, "Browse JSON", browse_json_sample).pack(side="right", padx=(0, 8))
+        self._button(source_row, "Browse JSON", browse_json_sample).pack(
+            side="right", padx=(0, 8)
+        )
         detected_fields: list[dict[str, Any]] = []
         sample_data: Any = None
         fields_tree = ttk.Treeview(
@@ -1177,9 +1185,7 @@ class WorkspaceMixin:
             field_map = {}
             for token, variable in map_vars.items():
                 selected = variable.get()
-                field_map[token] = (
-                    DEFAULT_FIELD_MAP[token] if selected == auto_label else selected
-                )
+                field_map[token] = DEFAULT_FIELD_MAP[token] if selected == auto_label else selected
             return {
                 "source_json": source_json_var.get().strip(),
                 "template": template_var.get().strip(),
