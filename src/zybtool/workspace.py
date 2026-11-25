@@ -948,12 +948,32 @@ class WorkspaceMixin:
         for key, label, hint in fields:
             row = tk.Frame(panel, bg=SURFACE)
             row.pack(fill="x", pady=(14, 0))
-            tk.Label(row, text=label, bg=SURFACE, fg=TEXT, font=(FONT, 9, "bold"), width=22, anchor="w").pack(side="left")
+            tk.Label(
+                row,
+                text=label,
+                bg=SURFACE,
+                fg=TEXT,
+                font=(FONT, 9, "bold"),
+                width=22,
+                anchor="w",
+            ).pack(side="left")
             variable = tk.StringVar(value=self.preferences.get(key, ""))
             self.preference_vars[key] = variable
-            tk.Entry(row, textvariable=variable, bg="#0A100D", fg=TEXT, insertbackground=TEXT, relief="flat", font=(MONO, 9)).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
-            self._button(row, "Browse", lambda v=variable, h=hint: self._browse_preference(v, h)).pack(side="right")
-            tk.Label(panel, text=hint, bg=SURFACE, fg=MUTED, font=(FONT, 8)).pack(anchor="w", pady=(3, 0))
+            tk.Entry(
+                row,
+                textvariable=variable,
+                bg="#0A100D",
+                fg=TEXT,
+                insertbackground=TEXT,
+                relief="flat",
+                font=(MONO, 9),
+            ).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
+            self._button(
+                row, "Browse", lambda v=variable, h=hint: self._browse_preference(v, h)
+            ).pack(side="right")
+            tk.Label(panel, text=hint, bg=SURFACE, fg=MUTED, font=(FONT, 8)).pack(
+                anchor="w", pady=(3, 0)
+            )
 
         naming = self.naming_preferences
         naming_panel = self._panel(
@@ -961,19 +981,35 @@ class WorkspaceMixin:
             "Scan JSON contoh untuk menemukan field. Mapping ini hanya mengatur nama folder output; metadata QR tetap harus lolos verifikasi.",
         )
         naming_panel.pack(fill="x", padx=34, pady=(0, 14))
-        tk.Label(naming_panel, text="JSON VARIABLE SCANNER", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")).pack(anchor="w", pady=(12, 5))
+        tk.Label(
+            naming_panel, text="JSON VARIABLE SCANNER", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")
+        ).pack(anchor="w", pady=(12, 5))
         source_row = tk.Frame(naming_panel, bg=SURFACE)
         source_row.pack(fill="x")
         source_json_var = tk.StringVar(value=str(naming.get("source_json") or ""))
-        tk.Entry(source_row, textvariable=source_json_var, bg="#0A100D", fg=TEXT, insertbackground=TEXT, relief="flat", font=(MONO, 9)).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
+        tk.Entry(
+            source_row,
+            textvariable=source_json_var,
+            bg="#0A100D",
+            fg=TEXT,
+            insertbackground=TEXT,
+            relief="flat",
+            font=(MONO, 9),
+        ).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
         def browse_json_sample() -> None:
-            selected = filedialog.askopenfilename(parent=self.root, title="Pilih JSON contoh", filetypes=[("JSON files", "*.json"), ("All files", "*.*")])
+            selected = filedialog.askopenfilename(
+                parent=self.root,
+                title="Pilih JSON contoh",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            )
             if selected:
                 source_json_var.set(str(Path(selected).resolve()))
         self._button(source_row, "Browse JSON", browse_json_sample).pack(side="right", padx=(0, 8))
         detected_fields: list[dict[str, Any]] = []
         sample_data: Any = None
-        fields_tree = ttk.Treeview(naming_panel, columns=("type", "sample"), show="tree headings", height=5)
+        fields_tree = ttk.Treeview(
+            naming_panel, columns=("type", "sample"), show="tree headings", height=5
+        )
         fields_tree.heading("#0", text="JSON FIELD PATH")
         fields_tree.heading("type", text="TYPE")
         fields_tree.heading("sample", text="SAMPLE VALUE")
@@ -982,25 +1018,52 @@ class WorkspaceMixin:
         fields_tree.column("sample", width=480)
         fields_tree.pack(fill="both", expand=True, pady=(10, 4))
         scan_status = tk.StringVar(value="Belum ada file JSON yang dipindai.")
-        tk.Label(naming_panel, textvariable=scan_status, bg=SURFACE, fg=MUTED, font=(FONT, 8)).pack(anchor="w", pady=(0, 8))
-        mapping_title = tk.Label(naming_panel, text="VARIABLE MAPPING", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold"))
+        tk.Label(naming_panel, textvariable=scan_status, bg=SURFACE, fg=MUTED, font=(FONT, 8)).pack(
+            anchor="w", pady=(0, 8)
+        )
+        mapping_title = tk.Label(
+            naming_panel, text="VARIABLE MAPPING", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")
+        )
         mapping_title.pack(anchor="w", pady=(8, 5))
-        tk.Label(naming_panel, text="Default mengambil b, r, dn, sh, a dari payload QR terverifikasi; DATE berasal dari capture_date kamera. Field JSON yang dipilih dapat mengambil nilai dari session.json atau payload QR.", bg=SURFACE, fg=SECONDARY, font=(FONT, 8), wraplength=900, justify="left").pack(anchor="w", pady=(0, 8))
+        tk.Label(
+            naming_panel,
+            text="Default mengambil b, r, dn, sh, a dari payload QR terverifikasi; DATE berasal dari capture_date kamera. Field JSON yang dipilih dapat mengambil nilai dari session.json atau payload QR.",
+            bg=SURFACE,
+            fg=SECONDARY,
+            font=(FONT, 8),
+            wraplength=900,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
         map_vars: dict[str, tk.StringVar] = {}
         map_boxes: dict[str, ttk.Combobox] = {}
         saved_map = naming.get("field_map") if isinstance(naming.get("field_map"), dict) else {}
         auto_label = "(Auto / default)"
         map_wrap = tk.Frame(naming_panel, bg=SURFACE)
         map_wrap.pack(fill="x")
-        labels = (("DATE", "Tanggal"), ("LOCATION_CODE", "Kode lokasi"), ("PERSON_NAME", "Nama recorder"), ("DEVICE_ID", "Device ID"), ("SESSION", "Shift / session"), ("ACTIVITY", "Aktivitas"))
+        labels = (
+            ("DATE", "Tanggal"),
+            ("LOCATION_CODE", "Kode lokasi"),
+            ("PERSON_NAME", "Nama recorder"),
+            ("DEVICE_ID", "Device ID"),
+            ("SESSION", "Shift / session"),
+            ("ACTIVITY", "Aktivitas"),
+        )
         for token, label in labels:
             row = tk.Frame(map_wrap, bg=SURFACE)
             row.pack(fill="x", pady=2)
-            tk.Label(row, text=label, bg=SURFACE, fg=TEXT, width=22, anchor="w", font=(FONT, 9)).pack(side="left")
+            tk.Label(
+                row, text=label, bg=SURFACE, fg=TEXT, width=22, anchor="w", font=(FONT, 9)
+            ).pack(side="left")
             current = str(saved_map.get(token) or DEFAULT_FIELD_MAP[token])
             variable = tk.StringVar(value=current if current else auto_label)
             map_vars[token] = variable
-            box = ttk.Combobox(row, textvariable=variable, values=[auto_label, *[v for v in DEFAULT_FIELD_MAP.values() if v]], state="readonly", width=52)
+            box = ttk.Combobox(
+                row,
+                textvariable=variable,
+                values=[auto_label, *[v for v in DEFAULT_FIELD_MAP.values() if v]],
+                state="readonly",
+                width=52,
+            )
             box.pack(side="left", fill="x", expand=True)
             map_boxes[token] = box
         def refresh_field_choices() -> None:
@@ -1023,24 +1086,40 @@ class WorkspaceMixin:
                     rendered = json.dumps(item["sample"], ensure_ascii=False, default=str)
                     if len(rendered) > 110:
                         rendered = rendered[:107] + "..."
-                    fields_tree.insert("", "end", text=item["path"], values=(item["type"], rendered))
+                    fields_tree.insert(
+                        "", "end", text=item["path"], values=(item["type"], rendered)
+                    )
                 refresh_field_choices()
-                scan_status.set(f"{len(detected_fields)} field terdeteksi. Pilih field untuk mapping di bawah.")
+                scan_status.set(
+                    f"{len(detected_fields)} field terdeteksi. Pilih field untuk mapping di bawah."
+                )
                 update_preview()
             except Exception as exc:
                 sample_data = None
                 messagebox.showerror("JSON Variable Scanner", str(exc), parent=self.root)
                 scan_status.set("Scan gagal. Periksa file JSON.")
-        self._button(source_row, "Scan Variables", scan_json_sample, primary=True).pack(side="right")
+        self._button(source_row, "Scan Variables", scan_json_sample, primary=True).pack(
+            side="right"
+        )
         if source_json_var.get() and Path(source_json_var.get()).is_file():
             try:
                 detected_fields[:] = scan_json_file(source_json_var.get())
-                sample_data = json.loads(Path(source_json_var.get()).read_text(encoding="utf-8-sig"))
+                sample_data = json.loads(
+                    Path(source_json_var.get()).read_text(encoding="utf-8-sig")
+                )
                 if isinstance(sample_data, list):
                     sample_data = next((item for item in sample_data if isinstance(item, dict)), {})
                 for item in detected_fields:
                     rendered = json.dumps(item["sample"], ensure_ascii=False, default=str)
-                    fields_tree.insert("", "end", text=item["path"], values=(item["type"], rendered[:107] + "..." if len(rendered) > 110 else rendered))
+                    fields_tree.insert(
+                        "",
+                        "end",
+                        text=item["path"],
+                        values=(
+                            item["type"],
+                            rendered[:107] + "..." if len(rendered) > 110 else rendered,
+                        ),
+                    )
                 refresh_field_choices()
                 scan_status.set(f"{len(detected_fields)} field tersimpan dari scan sebelumnya.")
             except Exception:
@@ -1048,31 +1127,73 @@ class WorkspaceMixin:
 
         template_row = tk.Frame(naming_panel, bg=SURFACE)
         template_row.pack(fill="x", pady=(14, 5))
-        tk.Label(naming_panel, text="FOLDER NAME TEMPLATE", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")).pack(anchor="w")
+        tk.Label(
+            naming_panel, text="FOLDER NAME TEMPLATE", bg=SURFACE, fg=GREEN, font=(FONT, 9, "bold")
+        ).pack(anchor="w")
         template_var = tk.StringVar(value=str(naming.get("template") or DEFAULT_TEMPLATE))
-        tk.Entry(template_row, textvariable=template_var, bg="#0A100D", fg=TEXT, insertbackground=TEXT, relief="flat", font=(MONO, 9)).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
+        tk.Entry(
+            template_row,
+            textvariable=template_var,
+            bg="#0A100D",
+            fg=TEXT,
+            insertbackground=TEXT,
+            relief="flat",
+            font=(MONO, 9),
+        ).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
         token_var = tk.StringVar(value="DATE")
-        ttk.Combobox(template_row, textvariable=token_var, values=list(TOKENS), state="readonly", width=18).pack(side="left", padx=(0, 6))
+        ttk.Combobox(
+            template_row, textvariable=token_var, values=list(TOKENS), state="readonly", width=18
+        ).pack(side="left", padx=(0, 6))
         def add_token() -> None:
             current = template_var.get().strip()
             template_var.set((current + "_" if current else "") + "{" + token_var.get() + "}")
         self._button(template_row, "Add token", add_token).pack(side="right")
         no_shift_var = tk.BooleanVar(value=bool(naming.get("no_shift", False)))
-        tk.Checkbutton(naming_panel, text="No Shift — hilangkan token SESSION sepenuhnya, jangan tulis S0", variable=no_shift_var, bg=SURFACE, fg=TEXT, activebackground=SURFACE, activeforeground=TEXT, selectcolor="#0A100D", font=(FONT, 9)).pack(anchor="w", pady=(8, 4))
+        tk.Checkbutton(
+            naming_panel,
+            text="No Shift — hilangkan token SESSION sepenuhnya, jangan tulis S0",
+            variable=no_shift_var,
+            bg=SURFACE,
+            fg=TEXT,
+            activebackground=SURFACE,
+            activeforeground=TEXT,
+            selectcolor="#0A100D",
+            font=(FONT, 9),
+        ).pack(anchor="w", pady=(8, 4))
         preview_var = tk.StringVar(value="Preview akan muncul setelah file JSON dipindai.")
-        tk.Label(naming_panel, textvariable=preview_var, bg="#0A100D", fg=GREEN, font=(MONO, 9), anchor="w", justify="left", wraplength=900, padx=12, pady=10).pack(fill="x", pady=(8, 0))
+        tk.Label(
+            naming_panel,
+            textvariable=preview_var,
+            bg="#0A100D",
+            fg=GREEN,
+            font=(MONO, 9),
+            anchor="w",
+            justify="left",
+            wraplength=900,
+            padx=12,
+            pady=10,
+        ).pack(fill="x", pady=(8, 0))
         def current_naming_config() -> dict[str, Any]:
             field_map = {}
             for token, variable in map_vars.items():
                 selected = variable.get()
-                field_map[token] = DEFAULT_FIELD_MAP[token] if selected == auto_label else selected
-            return {"source_json": source_json_var.get().strip(), "template": template_var.get().strip(), "field_map": field_map, "no_shift": no_shift_var.get()}
+                field_map[token] = (
+                    DEFAULT_FIELD_MAP[token] if selected == auto_label else selected
+                )
+            return {
+                "source_json": source_json_var.get().strip(),
+                "template": template_var.get().strip(),
+                "field_map": field_map,
+                "no_shift": no_shift_var.get(),
+            }
         def update_preview(*_args: Any) -> None:
             if sample_data is None:
                 preview_var.set("Preview akan muncul setelah file JSON dipindai.")
                 return
             try:
-                preview_var.set("PREVIEW  " + preview_folder_name(sample_data, current_naming_config()))
+                preview_var.set(
+                    "PREVIEW  " + preview_folder_name(sample_data, current_naming_config())
+                )
             except Exception as exc:
                 preview_var.set("Preview belum lengkap: " + str(exc))
         template_var.trace_add("write", update_preview)
@@ -1082,7 +1203,9 @@ class WorkspaceMixin:
         if sample_data is not None:
             update_preview()
 
-        self._button(panel, "Save Preferences", self._save_preferences, primary=True).pack(anchor="w", pady=(18, 0))
+        self._button(panel, "Save Preferences", self._save_preferences, primary=True).pack(
+            anchor="w", pady=(18, 0)
+        )
         self._naming_config_reader = current_naming_config
         self._set_status("Preferences siap diatur. JSON scanner hanya berjalan saat diminta.")
 
@@ -1140,7 +1263,11 @@ class WorkspaceMixin:
         self.excel_path.set(values["excel_root"])
         self.output_path.set(values["organized_root"])
         self._set_status("Preferences berhasil disimpan.")
-        messagebox.showinfo("Preferences", "Lokasi folder dan Naming Convention berhasil disimpan.", parent=self.root)
+        messagebox.showinfo(
+            "Preferences",
+            "Lokasi folder dan Naming Convention berhasil disimpan.",
+            parent=self.root,
+        )
 
     def _page_activity(self) -> None:
         self._header(
