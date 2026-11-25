@@ -1099,7 +1099,8 @@ class WorkspaceMixin:
         except Exception as exc:
             messagebox.showerror("Naming Convention tidak valid", str(exc), parent=self.root)
             return
-        for _key, value in values.items():
+        for _key in ("source_root", "report_root", "excel_root", "organized_root"):
+            value = values[_key]
             if (
                 value
                 and Path(value).expanduser().exists()
