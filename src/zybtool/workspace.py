@@ -1228,7 +1228,9 @@ class WorkspaceMixin:
             variable.set(selected)
 
     def _save_preferences(self) -> None:
-        values = {key: variable.get().strip() for key, variable in self.preference_vars.items()}
+        values: dict[str, Any] = {
+            key: variable.get().strip() for key, variable in self.preference_vars.items()
+        }
         try:
             values["naming"] = self._naming_config_reader()
             values["naming"]["template"] = validate_template(values["naming"]["template"])
