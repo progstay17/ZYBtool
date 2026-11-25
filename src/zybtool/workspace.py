@@ -78,9 +78,7 @@ def save_preferences(values: dict[str, Any]) -> None:
     naming: dict[str, Any] = naming_value if isinstance(naming_value, dict) else {}
     template = validate_template(str(naming.get("template") or DEFAULT_TEMPLATE))
     field_map_value = naming.get("field_map")
-    field_map: dict[str, Any] = (
-        field_map_value if isinstance(field_map_value, dict) else {}
-    )
+    field_map: dict[str, Any] = field_map_value if isinstance(field_map_value, dict) else {}
     clean["naming"] = {
         "source_json": str(naming.get("source_json") or "").strip(),
         "template": template,
@@ -1051,9 +1049,7 @@ class WorkspaceMixin:
         map_vars: dict[str, tk.StringVar] = {}
         map_boxes: dict[str, ttk.Combobox] = {}
         saved_map_value = naming.get("field_map")
-        saved_map: dict[str, Any] = (
-            saved_map_value if isinstance(saved_map_value, dict) else {}
-        )
+        saved_map: dict[str, Any] = saved_map_value if isinstance(saved_map_value, dict) else {}
         auto_label = "(Auto / default)"
         map_wrap = tk.Frame(naming_panel, bg=SURFACE)
         map_wrap.pack(fill="x")
