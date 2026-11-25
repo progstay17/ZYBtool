@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from zybtool.models import ResultStatus, VerificationReport
+from zybtool.naming import build_folder_name
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,26 +31,32 @@ class OutputPlan:
     blocked: tuple[str, ...]
 
 
-def _safe_component(value: Any, field: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Field AITQR '{field}' kosong.")
-    # Same normalization as ZYWTool's _alnum(): strip spaces and punctuation.
-    result = re.sub(r"[^A-Za-z0-9]", "", value)
-    if not result:
-        raise ValueError(f"Field AITQR '{field}' tidak memiliki karakter alfanumerik.")
-    if result.upper() in {
-        "CON",
-        "PRN",
-        "AUX",
-        "NUL",
-        *(f"COM{i}" for i in range(1, 10)),
-        *(f"LPT{i}" for i in range(1, 10)),
-    }:
-        raise ValueError(f"Field AITQR '{field}' memakai nama perangkat Windows yang dilarang.")
-    return result
+def _load_native_session(source: Path, recording: Any) -> dict[str, Any]:
+    """Read only the canonical session.json for the first unit in a recording."""
+    for relative in recording.unit_paths:
+        unit_dir = (source / relative).resolve(strict=True)
+        if unit_dir != source and source not in unit_dir.parents:
+            raise ValueError("Path session keluar dari folder sumber.")
+        if unit_dir.is_symlink():
+            raise ValueError("Symlink recording tidak diizinkan untuk naming metadata.")
+        session_file = unit_dir / "session.json"
+        if not session_file.is_file() or session_file.is_symlink():
+            continue
+        try:
+            value = json.loads(session_file.read_text(encoding="utf-8-sig"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"session.json tidak dapat dibaca ({type(exc).__name__}).") from None
+        if not isinstance(value, dict):
+            raise ValueError("Akar session.json harus berupa object.")
+        return value
+    return {}
 
 
-def _operational_name(recording: Any, report: VerificationReport) -> str:
+def _operational_name(
+    recording: Any,
+    report: VerificationReport,
+    naming_config: dict[str, Any] | None = None,
+) -> str:
     payload = recording.qr.payload if recording.qr else None
     if not isinstance(payload, dict):
         raise ValueError("Payload QR tidak tersedia.")
@@ -61,22 +69,15 @@ def _operational_name(recording: Any, report: VerificationReport) -> str:
     dates = {value for value in dates if len(value) == 8}
     if len(dates) != 1:
         raise ValueError("Tanggal capture tidak tersedia atau ambigu.")
-    date = dates.pop()
-    branch = _safe_component(payload.get("b"), "b")
-    recorder = _safe_component(payload.get("r"), "r")
-    recorder_number = _safe_component(payload.get("dn"), "dn")
-    activity = _safe_component(payload.get("a"), "a")
-    shift = payload.get("sh")
-    if not isinstance(shift, int) or isinstance(shift, bool) or shift not in (1, 2, 3):
-        raise ValueError("Field AITQR 'sh' harus bernilai 1, 2, atau 3.")
-    if not re.fullmatch(r"MM[0-9]{2,4}", branch):
-        raise ValueError("Field AITQR 'b' harus berformat MM diikuti 2–4 digit.")
-    if not re.fullmatch(r"ZY[0-9]{3,4}", recorder_number):
-        raise ValueError("Field AITQR 'dn' harus berformat ZY diikuti 3–4 digit.")
-    return f"{date}_{branch}_{recorder}_{recorder_number}_S{shift}_{activity}"
+    session = _load_native_session(Path(report.source_root).resolve(strict=True), recording)
+    return build_folder_name(payload, session, dates.pop(), naming_config)
 
 
-def create_output_plan(report: VerificationReport, destination: Path | str) -> OutputPlan:
+def create_output_plan(
+    report: VerificationReport,
+    destination: Path | str,
+    naming_config: dict[str, Any] | None = None,
+) -> OutputPlan:
     source = Path(report.source_root).resolve(strict=True)
     target = Path(destination).expanduser().resolve()
     if target == source or target in source.parents or source in target.parents:
@@ -130,7 +131,7 @@ def create_output_plan(report: VerificationReport, destination: Path | str) -> O
             )
             continue
         try:
-            name = _operational_name(recording, report)
+            name = _operational_name(recording, report, naming_config)
         except ValueError as exc:
             blocked.append(f"{recording.recording_id}: {exc}")
             continue
