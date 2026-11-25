@@ -1002,6 +1002,7 @@ class WorkspaceMixin:
             relief="flat",
             font=(MONO, 9),
         ).pack(side="left", fill="x", expand=True, ipady=9, padx=(0, 8))
+
         def browse_json_sample() -> None:
             selected = filedialog.askopenfilename(
                 parent=self.root,
@@ -1010,6 +1011,7 @@ class WorkspaceMixin:
             )
             if selected:
                 source_json_var.set(str(Path(selected).resolve()))
+
         self._button(source_row, "Browse JSON", browse_json_sample).pack(side="right", padx=(0, 8))
         detected_fields: list[dict[str, Any]] = []
         sample_data: Any = None
