@@ -1074,12 +1074,14 @@ class WorkspaceMixin:
             )
             box.pack(side="left", fill="x", expand=True)
             map_boxes[token] = box
+
         def refresh_field_choices() -> None:
             paths = [item["path"] for item in detected_fields]
             defaults = [value for value in DEFAULT_FIELD_MAP.values() if value]
             choices = [auto_label, *dict.fromkeys([*defaults, *paths])]
             for box in map_boxes.values():
                 box.configure(values=choices)
+
         def scan_json_sample() -> None:
             nonlocal sample_data
             try:
@@ -1106,6 +1108,7 @@ class WorkspaceMixin:
                 sample_data = None
                 messagebox.showerror("JSON Variable Scanner", str(exc), parent=self.root)
                 scan_status.set("Scan gagal. Periksa file JSON.")
+
         self._button(source_row, "Scan Variables", scan_json_sample, primary=True).pack(
             side="right"
         )
@@ -1152,9 +1155,11 @@ class WorkspaceMixin:
         ttk.Combobox(
             template_row, textvariable=token_var, values=list(TOKENS), state="readonly", width=18
         ).pack(side="left", padx=(0, 6))
+
         def add_token() -> None:
             current = template_var.get().strip()
             template_var.set((current + "_" if current else "") + "{" + token_var.get() + "}")
+
         self._button(template_row, "Add token", add_token).pack(side="right")
         no_shift_var = tk.BooleanVar(value=bool(naming.get("no_shift", False)))
         tk.Checkbutton(
@@ -1181,6 +1186,7 @@ class WorkspaceMixin:
             padx=12,
             pady=10,
         ).pack(fill="x", pady=(8, 0))
+
         def current_naming_config() -> dict[str, Any]:
             field_map = {}
             for token, variable in map_vars.items():
