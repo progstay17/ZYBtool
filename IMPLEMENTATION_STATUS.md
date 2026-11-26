@@ -162,3 +162,17 @@ Arrange Folder uses MOVE with hash verification, journal and Undo. Excel Export 
 - If the existing QR payload differs, Arrange still stops and rolls back rather than silently overwriting a different QR record.
 - Regression coverage includes upgrading an earlier VERIFIED_WITH_WARNING metadata block to current VERIFIED metadata.
 - Main-profile integration test: QR recording arranged successfully, no-QR control remained _UNNAMED, MOVE completed, and Undo restored both source folders.
+
+
+## v0.2.13 ? real-camera stereo standalone compatibility
+
+- Root cause from the user's real camera samples in Downloads\records: all eight folders use session.type=stereo_standalone; their valid capture contract does not include t0.json. Previous discovery therefore classified all eight as PARTIAL and skipped video/QR verification.
+- Discovery now recognizes the standalone contract only when the session type and stereo camera metadata (stream=stereo_rgb, mode=standalone) agree. t0.json is optional only for this explicit format. Capture date falls back to session.created_iso.
+- Standalone duration comparison uses a 3-second tolerance. When session_sync explicitly fails, cross-stream duration gates are preserved as a warning rather than incorrectly calling the entire recording incomplete; QR decryption and video readability remain required. Such records become VERIFIED_WITH_WARNING (trust 2) and can be named by Arrange. Other recording formats keep strict sync failure handling.
+- Real-camera end-to-end checks on QR-bearing sessions succeeded:
+  - recording_stereo_20261126_223827 -> 20261126_MM3208_fadhil_ZY009_S1_Bedroom (VERIFIED, trust 3).
+  - recording_stereo_20261126_225319 -> 20261126_MM3208_fadhil_ZY009_S2_Bedroom (VERIFIED, trust 3).
+  - recording_stereo_20261126_230925 -> 20261126_MM3208_Raka_ZY009_S3_Bedroom (VERIFIED, trust 3; 2.227-second standalone duration delta accepted within the format tolerance).
+  - recording_stereo_20261126_232622 -> 20261126_MM3208_Raka_ZY009_S4_Bedroom (VERIFIED_WITH_WARNING, trust 2; wall_skew=7.77s retained as a warning).
+- Four other sessions (224616, 225949, 231834, 233343) did not expose a QR token during the first 5 seconds sampled. They must not borrow another session's QR payload; they remain eligible for _UNNAMED unless a matching QR is found later in the configured scan window.
+- Automated validation: 58 passed / 1 optional external-sample integration skipped; Ruff and mypy passed. No source recording was moved during these checks.

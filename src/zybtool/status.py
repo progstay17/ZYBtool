@@ -20,6 +20,7 @@ def evaluate_status(
         return ResultStatus.AMBIGUOUS, 0, ("Bukti kandidat pengelompokan saling bertentangan",)
 
     reasons: list[str] = []
+    sync_warnings: list[str] = []
     if not facts:
         return ResultStatus.INCOMPLETE, 0, ("Tidak ada metadata unit",)
 
@@ -36,7 +37,12 @@ def evaluate_status(
         if not item.has_stop_log:
             reasons.append(f"{item.relative_path}: app.log tidak memiliki baris stop")
         if item.sync_ok is False or item.sync_fails:
-            reasons.append(f"{item.relative_path}: session_sync gagal atau memiliki fails")
+            detail = ", ".join(item.sync_fails) or "ok=false"
+            message = f"{item.relative_path}: session_sync melaporkan kualitas capture: {detail}"
+            if item.standalone_stereo:
+                sync_warnings.append(message)
+            else:
+                reasons.append(f"{item.relative_path}: session_sync gagal atau memiliki fails")
         for warning in item.warnings:
             reasons.append(f"{item.relative_path}: {warning}")
 
@@ -81,14 +87,17 @@ def evaluate_status(
             claims.append(("video_duration_s", item.claimed_video_duration_s))
         if item.segment_start_wall is not None and item.segment_stop_wall is not None:
             claims.append(("segment_start/stop", item.segment_stop_wall - item.segment_start_wall))
-        if item.sync_wall_s is not None:
+        sync_failed = item.sync_ok is False or bool(item.sync_fails)
+        if item.sync_wall_s is not None and not (item.standalone_stereo and sync_failed):
             claims.append(("session_sync", item.sync_wall_s))
-        claims.extend(
-            (f"app.log stop #{index + 1}", duration)
-            for index, duration in enumerate(item.log_stop_durations_s)
-        )
+        if not (item.standalone_stereo and sync_failed):
+            claims.extend(
+                (f"app.log stop #{index + 1}", duration)
+                for index, duration in enumerate(item.log_stop_durations_s)
+            )
+        claim_tolerance = 3.0 if item.standalone_stereo else CLAIM_TOLERANCE_S
         for name, claimed in claims:
-            if abs(claimed - actual) > CLAIM_TOLERANCE_S:
+            if abs(claimed - actual) > claim_tolerance:
                 return (
                     ResultStatus.METADATA_MISMATCH,
                     0,
@@ -96,11 +105,15 @@ def evaluate_status(
                         f"{item.relative_path}: {name} berbeda {abs(claimed - actual):.3f} s dari timeline video",
                     ),
                 )
-        csv_values = [
-            csv.duration_s
-            for csv in item.csv_timelines
-            if csv.duration_s is not None and csv.monotonic and not csv.error
-        ]
+        csv_values = (
+            []
+            if item.standalone_stereo and sync_failed
+            else [
+                csv.duration_s
+                for csv in item.csv_timelines
+                if csv.duration_s is not None and csv.monotonic and not csv.error
+            ]
+        )
         for value in csv_values:
             if abs(value - actual) > CSV_CROSS_TOLERANCE_S:
                 return (
@@ -115,13 +128,14 @@ def evaluate_status(
     # this protocol's acceptance criteria.
     if qr is not None:
         if qr.status is ResultStatus.QR_DECRYPTED:
-            return (
-                ResultStatus.VERIFIED,
-                3,
-                (
-                    "QR MQ1 berhasil didekripsi; envelope valid; metadata dan timeline recording lolos pemeriksaan.",
-                ),
-            )
+            message = "QR MQ1 berhasil didekripsi; envelope valid; metadata dan timeline recording lolos pemeriksaan."
+            if sync_warnings:
+                return (
+                    ResultStatus.VERIFIED_WITH_WARNING,
+                    2,
+                    (message, *sync_warnings),
+                )
+            return ResultStatus.VERIFIED, 3, (message,)
         return qr.status, 0, qr.reasons or ("QR tidak dapat didekripsi atau dikorelasikan.",)
 
     return ResultStatus.METADATA_ONLY, 0, ("QR terenkripsi belum ditemukan.",)

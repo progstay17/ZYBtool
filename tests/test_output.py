@@ -236,3 +236,35 @@ def test_arrange_maps_profile_defined_aitqr_short_keys(tmp_path: Path) -> None:
     assert len(plan.items) == 1
     assert plan.items[0].folder_name == "20261125_MM3201_testonly_ZY007_S5_Kitchen"
     assert plan.items[0].named is True
+
+
+def test_verified_with_capture_warning_is_still_named_from_decrypted_qr(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    (source / "recording_primary_demo").mkdir(parents=True)
+    base = _report(source, decrypted=True)
+    original = base.recordings[0]
+    warning_recording = RecordingResult(
+        recording_id=original.recording_id,
+        unit_paths=original.unit_paths,
+        device_id=original.device_id,
+        created_epoch=original.created_epoch,
+        segments=original.segments,
+        actual_duration_s=original.actual_duration_s,
+        status=ResultStatus.VERIFIED_WITH_WARNING,
+        trust_level=2,
+        reasons=("session_sync quality warning",),
+        qr=original.qr,
+    )
+    report = VerificationReport(
+        source_root=base.source_root,
+        run_id=base.run_id,
+        generated_at=base.generated_at,
+        units=base.units,
+        recordings=(warning_recording,),
+    )
+
+    plan = create_output_plan(report, tmp_path / "ZYB_Output")
+
+    assert len(plan.items) == 1
+    assert plan.items[0].folder_name == "20261125_MM12_RecorderA_ZY123_S2_BedRoom"
+    assert plan.items[0].named is True

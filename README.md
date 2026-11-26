@@ -59,7 +59,7 @@ Alternatif langsung:
 
     .\.venv\Scripts\zybtool.exe scan "D:\Recording" --output "D:\ZYB_Reports"
 
-Scan selalu mencari QR MQ1 pada dua crop mata kamera dari meta.json, mulai dari usable_start_s, default 5 fps selama 30 detik. Jika private key belum tersedia, QR tetap terdeteksi tetapi belum dapat didekripsi. Jika private key tersedia, ZYBTool mendekripsi payload, memvalidasi envelope profil, dan membandingkan di dengan session.json.device_id bila field di tersedia. Ketiadaan di tidak menurunkan status. Recording yang lolos pemeriksaan menjadi VERIFIED. Scan tidak memodifikasi recording; MOVE hanya terjadi melalui Arrange yang dikonfirmasi.
+Scan selalu mencari QR MQ1 pada dua crop mata kamera dari meta.json, mulai dari usable_start_s, default 5 fps selama 30 detik. Jika private key belum tersedia, QR tetap terdeteksi tetapi belum dapat didekripsi. Jika private key tersedia, ZYBTool mendekripsi payload, memvalidasi envelope profil, dan membandingkan di dengan session.json.device_id bila field di tersedia. Ketiadaan di tidak menurunkan status. Recording yang lolos pemeriksaan menjadi VERIFIED. Capture stereo standalone yang formatnya sah tidak diwajibkan memiliki t0.json. Jika gate sinkronisasi standalone gagal tetapi QR dan video valid, hasilnya VERIFIED_WITH_WARNING dan tetap dapat dinamai dengan peringatan tercatat. Scan tidak memodifikasi recording; MOVE hanya terjadi melalui Arrange yang dikonfirmasi.
 
 ## Pengujian
 
@@ -92,7 +92,7 @@ Lihat PRD.md, ARCHITECTURE.md, DESIGN.md, AITQR_INTEGRATION.md, dan AGENTS.md un
 
 Preferences menyediakan folder sumber default, Report output, Excel output, dan Organized Folders. Excel dibuat otomatis sebagai ZYB_Rekap.xlsx; folder tujuan dapat diubah kapan saja tanpa mengubah isi recording. Preview Frames dan Hand Check tidak termasuk scope ZYBTool.
 
-Arrange Folder menggunakan format grup yang sama dengan ZYWTool: YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas, misalnya 20261117_MM12_RecorderA_ZY123_S2_Kitchen. Nama komponen dinormalisasi alfanumerik seperti ZYWTool. Recording dengan kunci grup sama digabung ke folder grup yang sama; nama folder sesi asli dan semua subfoldernya tetap dipertahankan. Sesi CORRUPTED masuk _REJECTED; QR hilang/gagal didekripsi atau payload yang tidak lolos kontrak masuk _UNNAMED. Payload valid pada recording yang lolos pemeriksaan lokal diberi status VERIFIED dan dapat diberi nama operasional.
+Arrange Folder menggunakan format grup yang sama dengan ZYWTool: YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas, misalnya 20261117_MM12_RecorderA_ZY123_S2_Kitchen. Nama komponen dinormalisasi alfanumerik seperti ZYWTool. Recording dengan kunci grup sama digabung ke folder grup yang sama; nama folder sesi asli dan semua subfoldernya tetap dipertahankan. Sesi CORRUPTED masuk _REJECTED; QR hilang/gagal didekripsi atau payload yang tidak lolos kontrak masuk _UNNAMED. Payload valid pada recording yang lolos pemeriksaan lokal diberi status VERIFIED atau VERIFIED_WITH_WARNING dan dapat diberi nama operasional. QR yang tidak ditemukan tetap masuk _UNNAMED; nama operasional tidak ditebak dari recording lain.
 
 Arrange melakukan MOVE, bukan copy. Folder Organized yang sudah berisi grup sebelumnya dapat digunakan kembali; folder sesi yang bentrok tidak akan ditimpa. Sebelum eksekusi, ZYBTool menampilkan preview dan meminta konfirmasi, memeriksa SHA-256, dan menyimpan jurnal per proses untuk Undo. Jangan mematikan PC atau mencabut media selama MOVE berjalan.
 
@@ -100,3 +100,11 @@ Excel Export menghasilkan workbook empat sheet: ZY White, Cek File, Scan Audit, 
 
 
 Arrange aman dijalankan ulang pada session.json yang sudah memiliki zybtool.qr_metadata: payload QR yang sama akan memperbarui detail verifikasi, sedangkan payload yang berbeda tetap memicu konflik agar metadata lama tidak tertimpa.
+
+
+## v0.2.13 ? dukungan kamera stereo standalone
+
+- Format kamera stereo_standalone dikenali sebagai recording final berdasarkan session.json.type, stereo/meta.json (stream=stereo_rgb, mode=standalone), session_sync.json, video, dan data IMU. t0.json memang tidak diwajibkan oleh format ini.
+- Tanggal capture diambil dari session.created_iso jika capture_date tidak tersedia.
+- Perbedaan durasi standalone diberi toleransi 3 detik. Jika session_sync secara eksplisit gagal, kegagalan gate sinkronisasi dicatat sebagai peringatan; QR valid + video yang dapat dibaca menghasilkan VERIFIED_WITH_WARNING (trust 2) dan tetap bisa di-Arrange. Format recorder lain tetap memakai aturan ketat sebelumnya.
+- QR hilang tidak dipalsukan atau dipinjam dari sesi lain; recording tetap _UNNAMED sampai QR yang sesuai tersedia.

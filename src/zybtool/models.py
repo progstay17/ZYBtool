@@ -55,6 +55,7 @@ class SessionFacts:
     live_root: str | None = None
     capture_date: str | None = None
     created_epoch: float | None = None
+    standalone_stereo: bool = False
     capture_t0_wall_s: float | None = None
     segment_start_wall: float | None = None
     segment_stop_wall: float | None = None

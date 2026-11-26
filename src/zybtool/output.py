@@ -121,9 +121,10 @@ def create_output_plan(
                 )
             )
             continue
+        required_trust = 2 if recording.status is ResultStatus.VERIFIED_WITH_WARNING else 3
         if (
-            recording.status is not ResultStatus.VERIFIED
-            or recording.trust_level < 3
+            recording.status not in {ResultStatus.VERIFIED, ResultStatus.VERIFIED_WITH_WARNING}
+            or recording.trust_level < required_trust
             or recording.qr is None
             or recording.qr.status is not ResultStatus.QR_DECRYPTED
         ):
@@ -144,7 +145,7 @@ def create_output_plan(
                 recording.unit_paths,
                 recording.status.value,
                 True,
-                "QR berhasil didekripsi; envelope dan pemeriksaan recording valid. Metadata QR dipakai untuk melengkapi session.json.",
+                "QR berhasil didekripsi; envelope valid dan metadata QR dipakai untuk melengkapi session.json. Peringatan kualitas capture tetap dicatat bila ada.",
                 {
                     "schema": "zyb-recording/v1",
                     "payload": dict(recording.qr.payload or {}),

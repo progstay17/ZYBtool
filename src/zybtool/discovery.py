@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from zybtool.meta import parse_unit_metadata
@@ -44,13 +45,42 @@ def _files_for_candidate(candidate: Path, nested_candidates: set[Path]) -> tuple
     return tuple(sorted(collected, key=lambda p: p.relative_to(candidate).as_posix().lower()))
 
 
+def _is_standalone_stereo(files: tuple[Path, ...]) -> bool:
+    session_path = next((item for item in files if item.name.lower() == "session.json"), None)
+    if session_path is None:
+        return False
+    try:
+        session = json.loads(session_path.read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return False
+    if not isinstance(session, dict) or session.get("type") != "stereo_standalone":
+        return False
+    for meta_path in files:
+        if meta_path.name.lower() != "meta.json":
+            continue
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8-sig"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            continue
+        if (
+            isinstance(meta, dict)
+            and meta.get("stream") == "stereo_rgb"
+            and meta.get("mode") == "standalone"
+        ):
+            return True
+    return False
+
+
 def _classify(path: Path, files: tuple[Path, ...]) -> UnitKind:
     names = {item.name.lower() for item in files}
     if path.name.lower().startswith(_LIVE_PREFIX):
         return UnitKind.LIVE
-    core = {"session.json", "session_sync.json", "t0.json"}
+    has_core = {"session.json", "session_sync.json"}.issubset(names)
     has_meta = any(item.name.lower() == "meta.json" for item in files)
-    if core.issubset(names) and has_meta:
+    # Standalone stereo captures have their own explicit session/meta contract;
+    # unlike the primary recorder format, they do not emit t0.json.
+    has_time_anchor = "t0.json" in names or _is_standalone_stereo(files)
+    if has_core and has_meta and has_time_anchor:
         return UnitKind.FINAL
     return UnitKind.PARTIAL
 

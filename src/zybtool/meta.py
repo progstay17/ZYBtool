@@ -111,14 +111,26 @@ def parse_unit_metadata(
         | {path.parent.relative_to(root).as_posix() for path in mkv_files}
     )
 
+    standalone_stereo = False
+    if session.get("type") == "stereo_standalone":
+        for meta_path in meta_files:
+            meta_document = _load_json(meta_path, warnings)
+            if (
+                meta_document.get("stream") == "stereo_rgb"
+                and meta_document.get("mode") == "standalone"
+            ):
+                standalone_stereo = True
+                break
+
     missing: list[str] = []
     for name, candidate_path in (
         ("session.json", session_path),
         ("session_sync.json", sync_path),
-        ("t0.json", t0_path),
     ):
         if candidate_path is None:
             missing.append(name)
+    if t0_path is None and not standalone_stereo:
+        missing.append("t0.json")
     if not meta_files:
         missing.append("camera meta.json")
     if not mkv_files:
@@ -134,6 +146,18 @@ def parse_unit_metadata(
     sync_fails = tuple(str(item) for item in fails_raw)
 
     created = session.get("created")
+    capture_date = _optional_str(session.get("capture_date"))
+    if capture_date is None:
+        created_iso = session.get("created_iso")
+        if isinstance(created_iso, str):
+            try:
+                from datetime import datetime
+
+                capture_date = (
+                    datetime.fromisoformat(created_iso.replace("Z", "+00:00")).date().isoformat()
+                )
+            except ValueError:
+                capture_date = None
     t0_wall = t0.get("t_wall_s")
     if t0_wall is None:
         capture = session.get("capture_t0")
@@ -146,8 +170,9 @@ def parse_unit_metadata(
         device_id=_optional_str(session.get("device_id")),
         object_id=_optional_str(session.get("object_id")),
         live_root=_optional_str(session.get("live_root")),
-        capture_date=_optional_str(session.get("capture_date")),
+        capture_date=capture_date,
         created_epoch=_optional_float(created),
+        standalone_stereo=standalone_stereo,
         capture_t0_wall_s=_optional_float(t0_wall),
         segment_start_wall=_optional_float(session.get("segment_start_wall")),
         segment_stop_wall=_optional_float(session.get("segment_stop_wall")),
