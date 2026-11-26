@@ -176,3 +176,13 @@ Arrange Folder uses MOVE with hash verification, journal and Undo. Excel Export 
   - recording_stereo_20261126_232622 -> 20261126_MM3208_Raka_ZY009_S4_Bedroom (VERIFIED_WITH_WARNING, trust 2; wall_skew=7.77s retained as a warning).
 - Four other sessions (224616, 225949, 231834, 233343) did not expose a QR token during the first 5 seconds sampled. They must not borrow another session's QR payload; they remain eligible for _UNNAMED unless a matching QR is found later in the configured scan window.
 - Automated validation: 58 passed / 1 optional external-sample integration skipped; Ruff and mypy passed. No source recording was moved during these checks.
+
+
+## v0.2.14 ? standalone continuation grouping (verified against real camera files)
+
+- User clarified that all eight folders under Downloads\records are continuation chunks of one logical recording and must share one output filename.
+- Grouping now links explicit stereo_standalone chunks only when capture dates match and the next chunk starts within -5 to +300 seconds of the previous chunk's created + session_sync.wall_s. This avoids filename-only guessing and avoids merging across days or long breaks.
+- QR verification scans all segments in chronological order. A QR on the first chunk is used as the identity for the complete grouped recording; subsequent chunks need not repeat the QR.
+- Real camera verification result: 8 units -> 1 recording, QR_DECRYPTED from the first segment, status VERIFIED_WITH_WARNING (trust 2) due to three preserved sync-quality warnings, total media duration 3332.831 seconds. Output plan contains exactly one named folder: 20261126_MM3208_fadhil_ZY009_S1_Bedroom, with all eight source unit paths and no blocked items.
+- Verification was read-only. No source folders or media files were moved. Arrange will move all eight chunks under this single operational folder when the operator confirms MOVE.
+- Automated validation: 60 passed / 1 optional external-sample integration skipped; Ruff, formatting, mypy, and diff checks passed.

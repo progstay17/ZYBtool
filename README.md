@@ -108,3 +108,12 @@ Arrange aman dijalankan ulang pada session.json yang sudah memiliki zybtool.qr_m
 - Tanggal capture diambil dari session.created_iso jika capture_date tidak tersedia.
 - Perbedaan durasi standalone diberi toleransi 3 detik. Jika session_sync secara eksplisit gagal, kegagalan gate sinkronisasi dicatat sebagai peringatan; QR valid + video yang dapat dibaca menghasilkan VERIFIED_WITH_WARNING (trust 2) dan tetap bisa di-Arrange. Format recorder lain tetap memakai aturan ketat sebelumnya.
 - QR hilang tidak dipalsukan atau dipinjam dari sesi lain; recording tetap _UNNAMED sampai QR yang sesuai tersedia.
+
+
+## v0.2.14 ? penggabungan lanjutan kamera standalone
+
+- Potongan stereo_standalone pada tanggal capture yang sama otomatis dikelompokkan menjadi satu recording jika waktu mulai potongan berikutnya berada maksimal 5 menit setelah akhir potongan sebelumnya (berdasarkan created + session_sync.wall_s).
+- QR dipindai lintas seluruh potongan dalam urutan waktu. QR yang ditemukan pada potongan pertama menjadi identitas recording gabungan; potongan lanjutan tidak perlu mengulang QR.
+- Arrange memindahkan seluruh folder potongan ke satu folder bernama operasional yang sama. Setiap session.json menerima metadata QR sesi yang sama.
+- Peringatan kualitas sinkronisasi dari potongan mana pun tetap dipertahankan pada status gabungan VERIFIED_WITH_WARNING.
+- Potongan di tanggal berbeda, tanpa durasi/urutan yang dapat dibuktikan, atau terpisah lebih dari 5 menit tidak digabung otomatis.

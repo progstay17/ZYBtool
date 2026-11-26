@@ -1,4 +1,4 @@
-"""Conservative segment grouping; no guesswork from filenames or time proximity."""
+"""Conservative segment grouping with explicit continuation rules for standalone captures."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ from pathlib import Path
 from zybtool.models import RecordingResult, Segment, Unit, UnitKind, VideoEvidence
 from zybtool.status import evaluate_status
 from zybtool.util import sha256_file
+
+_STANDALONE_CONTINUATION_GAP_S = 300.0
 
 
 def _recording_id(unit: Unit) -> str:
@@ -79,6 +81,39 @@ def _duration(segments: tuple[Segment, ...]) -> float | None:
     return max(totals) if totals else None
 
 
+def _standalone_continuation_groups(units: tuple[Unit, ...]) -> dict[str, tuple[Unit, ...]]:
+    """Join adjacent standalone camera chunks into one logical recording."""
+    standalone = sorted(
+        (unit for unit in units if unit.facts.standalone_stereo),
+        key=lambda unit: (
+            unit.facts.created_epoch if unit.facts.created_epoch is not None else float("inf"),
+            unit.facts.relative_path.casefold(),
+        ),
+    )
+    groups: list[list[Unit]] = []
+    for unit in standalone:
+        facts = unit.facts
+        if not groups:
+            groups.append([unit])
+            continue
+        previous = groups[-1][-1].facts
+        can_link = False
+        if (
+            facts.created_epoch is not None
+            and previous.created_epoch is not None
+            and previous.sync_wall_s is not None
+            and facts.capture_date is not None
+            and facts.capture_date == previous.capture_date
+        ):
+            gap = facts.created_epoch - (previous.created_epoch + previous.sync_wall_s)
+            can_link = -5.0 <= gap <= _STANDALONE_CONTINUATION_GAP_S
+        if can_link:
+            groups[-1].append(unit)
+        else:
+            groups.append([unit])
+    return {group[0].facts.relative_path: tuple(group) for group in groups if len(group) > 1}
+
+
 def group_recordings(
     units: tuple[Unit, ...],
     evidence: dict[str, VideoEvidence],
@@ -112,12 +147,16 @@ def group_recordings(
                 ambiguous_paths.add(live.facts.relative_path)
 
     results: list[RecordingResult] = []
+    standalone_groups = _standalone_continuation_groups(ordered)
+    consumed_standalone: set[str] = set()
     for unit in ordered:
         relative = unit.facts.relative_path
-        if relative in consumed_live:
+        if relative in consumed_live or relative in consumed_standalone:
             continue
+        continuation_units = standalone_groups.get(relative, (unit,))
+        consumed_standalone.update(item.facts.relative_path for item in continuation_units[1:])
         linked_paths = attached.get(relative, ())
-        member_units = (unit,) + tuple(
+        member_units = continuation_units + tuple(
             next(item for item in ordered if item.facts.relative_path == path)
             for path in linked_paths
         )
