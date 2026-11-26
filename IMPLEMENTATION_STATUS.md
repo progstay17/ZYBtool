@@ -132,3 +132,15 @@ Arrange Folder uses MOVE with hash verification, journal and Undo. Excel Export 
 - Local Windows portable build created with PyInstaller 6.22.3 from the current main source; the executable launched successfully in an isolated temporary profile and remained running with the ZYBTool window visible. The real user profile was not opened or modified during the smoke test.
 - Current automated validation: Ruff check passed, Ruff format check passed, mypy passed for 20 source modules, and pytest reported 50 passed / 1 optional external-sample integration test skipped (ZYB_SAMPLES_DIR not configured).
 - Preferences persistence and the Preferences/Arrange Folder visual workflow still require a manual GUI check on the target workstation before operational sign-off.
+
+
+## Superseding update 2026-11-26 — QR envelope verification and Arrange naming
+
+- A successful MQ1 decrypt is now followed by consumer validation of the stable AITQR envelope: p=zyb-recording, pv=1, and a 16-character Crockford Base32 session ID s. Account-defined payload fields remain flexible.
+- If the payload contains di, it must be non-empty and match session.json.device_id; a mismatch is METADATA_MISMATCH and is not eligible for Arrange. If the account profile omits di, the report explicitly warns that direct camera-ID correlation is unavailable.
+- When the recording metadata and video timeline pass and the QR envelope is valid, the recording result is VERIFIED_WITH_WARNING (trust level 1). The QR sub-status remains QR_DECRYPTED. This is intentionally not VERIFIED: MQ1 encrypts the payload but does not authenticate who issued the QR.
+- Arrange accepts VERIFIED_WITH_WARNING records and uses the configured field map (including account keys such as c, d, l, ss, and t). Missing/undecryptable QR remains _UNNAMED; malformed envelopes and mismatched device IDs are rejected from naming.
+- QR Decoder now validates the envelope before presenting JSON as a valid ZYB payload.
+- Regression tests cover custom account fields, invalid profile/version/session IDs, missing optional di, and mismatched di.
+- Validation on Windows: pytest 53 passed / 1 optional external-sample integration test skipped; Ruff check and format check passed; mypy passed for 20 source modules.
+- Release target: v0.2.10. MQ1 issuer authentication remains out of scope unless the AITQR/ZYBTool protocol is deliberately extended with an issuer signature.

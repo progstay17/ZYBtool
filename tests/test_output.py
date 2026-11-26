@@ -39,7 +39,7 @@ def _report(
         created_epoch=None,
         segments=(),
         actual_duration_s=None,
-        status=ResultStatus.QR_DECRYPTED if decrypted else ResultStatus.METADATA_ONLY,
+        status=ResultStatus.VERIFIED_WITH_WARNING if decrypted else ResultStatus.METADATA_ONLY,
         trust_level=1 if decrypted else 0,
         qr=qr,
     )

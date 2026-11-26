@@ -60,3 +60,10 @@ Both repositories must run the same vectors in CI. Until then, ZYBTool's trust l
 ## Protocol decision 2026-11-25
 
 Use Metaqr MQ1 encrypted-only end-to-end. AITQR requires only the ZYBTool decoder public key; it does not generate staff signing keys or an allow-list. ZYBTool requires the matching decoder private key, which remains local and DPAPI-protected. MQ1 payloads are not proof of who created the QR.
+
+
+## 2026-11-26 — ZYBTool consumer verification semantics
+
+ZYBTool accepts account-specific payload fields but validates the stable envelope (p=zyb-recording, pv=1, and a 16-character Crockford Base32 s). The field di, when present, is treated as the camera's native session.json.device_id and must match exactly. Account profiles that omit di can still produce a locally validated recording, but the report warns that camera-ID correlation is unavailable. A custom field such as d (device number) is not implicitly treated as camera device_id.
+
+A recording that passes its metadata/video timeline checks and contains a valid decrypted payload is reported as VERIFIED_WITH_WARNING; the nested QR status remains QR_DECRYPTED. This does not authenticate the person or service that created the token. MQ1 is encrypted-only; full issuer authentication requires an explicit signed-token protocol change and is not inferred from successful decryption.

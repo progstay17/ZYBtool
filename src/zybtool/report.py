@@ -113,7 +113,7 @@ table{{width:100%;border-collapse:collapse}}th,td{{text-align:left;padding:12px;
 <h1>ZYB Tool — Laporan Verifikasi</h1>
 <div class="muted">Run {html.escape(report.run_id)} · Dibuat {html.escape(report.generated_at)}</div>
 <div class="panel"><div class="muted">Folder sumber (read-only)</div><code>{source}</code>
-<p class="notice">QR MQ1 berhasil didekripsi bila status QR_DECRYPTED. Format MQ1 tidak mengautentikasi identitas pembuat QR.</p></div>
+<p class="notice">VERIFIED_WITH_WARNING berarti envelope payload dan pemeriksaan recording lolos. MQ1 memberikan enkripsi dan integritas token, tetapi tidak mengautentikasi identitas penerbit. Bila field di tidak dikirim, pencocokan ID kamera tidak dapat dilakukan.</p></div>
 <div class="panel"><table><thead><tr><th>Status</th><th>Recording</th><th>Device</th><th>Segment</th><th>Durasi aktual</th><th>Bukti QR/MQ1</th><th>Alasan / temuan</th></tr></thead>
 <tbody>{body}</tbody></table></div></main></body></html>"""
     return page.encode("utf-8")

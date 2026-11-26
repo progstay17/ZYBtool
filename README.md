@@ -5,7 +5,7 @@ Alat desktop lokal/offline untuk memeriksa recording camera project, mendekripsi
 ## Status implementasi
 
 - **M1 — selesai:** discovery, parser, timeline video, grouping konservatif, status, laporan dan CLI.
-- **M2 - QR MQ1 encrypted-only:** Scan selalu mendeteksi QR pada dua crop mata kamera. Jika private key tersedia, ZYBTool mendekripsi payload MQ1 dan memeriksa device ID terhadap session. Tidak ada signing key petugas, allow-list, atau replay log; MQ1 tidak mengautentikasi pembuat QR.
+- **M2 - QR MQ1 encrypted-only:** Scan mendeteksi QR pada dua crop mata kamera, mendekripsi dengan private key lokal, dan memvalidasi envelope p=zyb-recording, pv=1, serta session ID. Jika payload menyertakan di, nilainya wajib cocok dengan session.json.device_id; profil akun yang tidak mengirim di tetap diberi peringatan korelasi kamera.
 - **Trust:** `QR_DECRYPTED` berarti payload berhasil didekripsi dan lolos korelasi dasar (level 1), bukan bukti identitas pengirim.
 - **M3 — fondasi lokal aktif:** Arrange Folder mengikuti grouping ZYWTool dengan template default `YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas`; sesi dengan kunci nama sama berbagi folder grup dan nama folder sesi asli tetap dipertahankan. Preferences memiliki JSON Variable Scanner (Browse/Scan), deteksi nested object/array, field mapping, template editor dan live preview. No Shift menghilangkan token SESSION tanpa menghasilkan `S0`. MOVE tetap memakai verifikasi SHA-256 dan jurnal Undo. Excel Export menyediakan sheet ZY White, Cek File, Scan Audit, Rekonsiliasi, serta mempertahankan kolom QC manual.
 - **OSS Transfers — dihapus dari scope:** pola nama folder OSS hanya referensi format; tidak ada credential, bucket browser, upload, atau download.
@@ -59,7 +59,7 @@ Alternatif langsung:
 
     .\.venv\Scripts\zybtool.exe scan "D:\Recording" --output "D:\ZYB_Reports"
 
-Scan selalu mencari QR MQ1 pada dua crop mata kamera dari meta.json, mulai dari usable_start_s, default 5 fps selama 30 detik. Jika private key belum tersedia, QR tetap terdeteksi tetapi belum dapat didekripsi. Jika private key tersedia, ZYBTool mendekripsi payload dan memeriksa kecocokan device ID dengan session. Scan tidak memodifikasi recording; MOVE hanya terjadi melalui Arrange yang dikonfirmasi.
+Scan selalu mencari QR MQ1 pada dua crop mata kamera dari meta.json, mulai dari usable_start_s, default 5 fps selama 30 detik. Jika private key belum tersedia, QR tetap terdeteksi tetapi belum dapat didekripsi. Jika private key tersedia, ZYBTool mendekripsi payload, memvalidasi envelope profil, dan membandingkan di dengan session.json.device_id bila field di tersedia. Tanpa di, hasil dicatat sebagai VERIFIED_WITH_WARNING, bukan autentikasi kamera penuh. Scan tidak memodifikasi recording; MOVE hanya terjadi melalui Arrange yang dikonfirmasi.
 
 ## Pengujian
 
@@ -80,7 +80,7 @@ Tes integrasi sampel operasional bersifat opt-in karena file MKV besar tidak dis
 - Folder .live_* ikut ditemukan tetapi dinilai INCOMPLETE sampai ada bukti finalisasi.
 - Metadata saja tidak pernah menghasilkan QR_DECRYPTED.
 - MQ1 hanya memberi kerahasiaan dan dekripsi; tidak membuktikan identitas pengirim QR.
-- QR_DECRYPTED memiliki trust level 1; sender tidak diautentikasi dan manifest belum ditandatangani.
+- VERIFIED_WITH_WARNING memiliki trust level 1; struktur/timeline dan envelope QR lolos pemeriksaan lokal, tetapi sender tetap tidak diautentikasi dan manifest belum ditandatangani. QR_DECRYPTED hanya status lapisan QR.
 - Ambiguitas tidak diselesaikan dengan tebakan.
 - ZYBTool tidak mempunyai fitur upload/download atau koneksi OSS. Nama folder OSS hanya referensi konvensi yang field-nya dikonfigurasi pada AITQR.
 - Jangan menaruh AccessKey, Secret, private key atau data petugas di repository/log.
@@ -92,7 +92,7 @@ Lihat PRD.md, ARCHITECTURE.md, DESIGN.md, AITQR_INTEGRATION.md, dan AGENTS.md un
 
 Preferences menyediakan folder sumber default, Report output, Excel output, dan Organized Folders. Excel dibuat otomatis sebagai ZYB_Rekap.xlsx; folder tujuan dapat diubah kapan saja tanpa mengubah isi recording. Preview Frames dan Hand Check tidak termasuk scope ZYBTool.
 
-Arrange Folder menggunakan format grup yang sama dengan ZYWTool: YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas, misalnya 20261117_MM12_RecorderA_ZY123_S2_Kitchen. Nama komponen dinormalisasi alfanumerik seperti ZYWTool. Recording dengan kunci grup sama digabung ke folder grup yang sama; nama folder sesi asli dan semua subfoldernya tetap dipertahankan. Sesi CORRUPTED masuk _REJECTED; QR yang belum dapat didekripsi masuk _UNNAMED.
+Arrange Folder menggunakan format grup yang sama dengan ZYWTool: YYYYMMDD_MMxx_NamaRecorder_ZYxxx_S<shift>_Aktivitas, misalnya 20261117_MM12_RecorderA_ZY123_S2_Kitchen. Nama komponen dinormalisasi alfanumerik seperti ZYWTool. Recording dengan kunci grup sama digabung ke folder grup yang sama; nama folder sesi asli dan semua subfoldernya tetap dipertahankan. Sesi CORRUPTED masuk _REJECTED; QR hilang/gagal didekripsi atau payload yang tidak lolos kontrak masuk _UNNAMED. Payload valid pada recording yang lolos pemeriksaan lokal bisa diberi nama operasional walau statusnya VERIFIED_WITH_WARNING.
 
 Arrange melakukan MOVE, bukan copy. Folder Organized yang sudah berisi grup sebelumnya dapat digunakan kembali; folder sesi yang bentrok tidak akan ditimpa. Sebelum eksekusi, ZYBTool menampilkan preview dan meminta konfirmasi, memeriksa SHA-256, dan menyimpan jurnal per proses untuk Undo. Jangan mematikan PC atau mencabut media selama MOVE berjalan.
 

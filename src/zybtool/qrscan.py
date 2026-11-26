@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -124,12 +125,21 @@ def scan_video_tokens(
     return QRScanResult(tuple(votes.most_common()), scanned, first_seen)
 
 
+_SESSION_ID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{16}$")
+
+
 def validate_zyb_payload(payload: dict[str, Any]) -> tuple[bool, tuple[str, ...]]:
-    """Accept AITQR's account-configured payload; do not impose a fixed field schema."""
+    """Validate the stable AITQR envelope while allowing account-specific payload fields."""
     if not isinstance(payload, dict):
         return False, ("Isi QR harus berupa JSON object.",)
-    if not payload:
-        return False, ("Payload JSON kosong.",)
+    if payload.get("p") != "zyb-recording":
+        return False, ("Profile QR bukan zyb-recording.",)
+    version = payload.get("pv")
+    if isinstance(version, bool) or version != 1:
+        return False, ("Versi payload QR tidak didukung; diperlukan pv=1.",)
+    session_id = payload.get("s")
+    if not isinstance(session_id, str) or not _SESSION_ID_RE.fullmatch(session_id):
+        return False, ("Session ID QR tidak valid; diperlukan 16 karakter Crockford Base32.",)
     return True, ()
 
 
@@ -199,22 +209,33 @@ def verify_recording_qr(
                     reasons=(f"Dekripsi QR gagal: {type(exc).__name__}: {exc}",),
                 )
                 continue
-            if not isinstance(payload, dict) or not payload:
+            if not isinstance(payload, dict):
                 best_error = QRVerification(
                     ResultStatus.METADATA_MISMATCH,
                     token_version=1,
-                    payload=payload if isinstance(payload, dict) else None,
                     source_video=segment.video.relative_path,
                     time_s=scan.first_seen_s.get(token),
                     votes=votes,
-                    reasons=("Payload QR bukan JSON object yang berisi data.",),
+                    reasons=("Payload QR bukan JSON object.",),
+                )
+                continue
+            payload_valid, payload_reasons = validate_zyb_payload(payload)
+            if not payload_valid:
+                best_error = QRVerification(
+                    ResultStatus.METADATA_MISMATCH,
+                    token_version=1,
+                    payload=payload,
+                    source_video=segment.video.relative_path,
+                    time_s=scan.first_seen_s.get(token),
+                    votes=votes,
+                    reasons=payload_reasons,
                 )
                 continue
             device_id = payload.get("di")
-            if (
-                recording.device_id
-                and isinstance(device_id, str)
-                and device_id != recording.device_id
+            if "di" in payload and (
+                not isinstance(device_id, str)
+                or not device_id.strip()
+                or (recording.device_id is not None and device_id != recording.device_id)
             ):
                 best_error = QRVerification(
                     ResultStatus.METADATA_MISMATCH,
@@ -224,11 +245,23 @@ def verify_recording_qr(
                     time_s=scan.first_seen_s.get(token),
                     votes=votes,
                     reasons=(
-                        f"Payload device ID {device_id!r} tidak cocok dengan session {recording.device_id!r}",
+                        f"Payload device ID {device_id!r} tidak cocok atau tidak valid untuk session {recording.device_id!r}.",
                     ),
                 )
                 continue
             token_id = hashlib.sha256(token.encode("ascii")).hexdigest()[:16]
+            if "di" not in payload:
+                correlation_note = (
+                    "Profil QR tidak mengirim field di; ID kamera native belum dapat "
+                    "dikorelasikan secara langsung."
+                )
+            elif recording.device_id is None:
+                correlation_note = (
+                    "Payload memiliki device ID, tetapi session kamera tidak menyediakan "
+                    "device_id untuk dibandingkan."
+                )
+            else:
+                correlation_note = "Device ID QR cocok dengan device_id pada session kamera."
             return QRVerification(
                 ResultStatus.QR_DECRYPTED,
                 token_version=1,
@@ -238,7 +271,9 @@ def verify_recording_qr(
                 time_s=scan.first_seen_s.get(token),
                 votes=votes,
                 reasons=(
-                    "QR terenkripsi MQ1 berhasil didekripsi; identitas pengirim tidak diverifikasi.",
+                    "Envelope profil zyb-recording/v1 valid dan QR ditemukan pada video. "
+                    + correlation_note
+                    + " MQ1 tidak mengautentikasi identitas penerbit QR.",
                 ),
             )
     return best_error or QRVerification(

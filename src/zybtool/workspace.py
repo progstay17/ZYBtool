@@ -26,6 +26,7 @@ from zybtool.operations import execute_move_plan, export_excel, undo_move
 from zybtool.output import create_output_plan
 from zybtool.pipeline import run_verification, write_report
 from zybtool.qrdecoder import decode_qr_image
+from zybtool.qrscan import validate_zyb_payload
 from zybtool.settings import data_dir
 
 PREFERENCE_DEFAULTS: dict[str, Any] = {
@@ -282,7 +283,12 @@ class WorkspaceMixin:
         values = [
             ("FOLDERS DISCOVERED", str(len(report.units)) if report else "—"),
             ("RECORDINGS", str(len(report.recordings)) if report else "—"),
-            ("QR DECRYPTED", str(counts[ResultStatus.QR_DECRYPTED]) if report else "?"),
+            (
+                "VERIFIED + WARNING",
+                str(counts[ResultStatus.VERIFIED_WITH_WARNING] + counts[ResultStatus.VERIFIED])
+                if report
+                else "?",
+            ),
             (
                 "NEEDS ATTENTION",
                 str(
@@ -320,7 +326,7 @@ class WorkspaceMixin:
                 card,
                 text=value,
                 bg=SURFACE,
-                fg=GREEN if label == "QR DECRYPTED" and report else TEXT,
+                fg=AMBER if label == "VERIFIED + WARNING" and report else TEXT,
                 font=(MONO, 24, "bold"),
             ).pack(anchor="w", pady=(8, 0))
         panel = self._panel(
@@ -411,7 +417,7 @@ class WorkspaceMixin:
         self._button(row2, "Browse", self._choose_report_dir).pack(side="right")
         run = self._panel(
             "3. Verification",
-            "Discovery · metadata · video timeline · QR/MQ1 (selalu discan; dekripsi jika private key tersedia) · grouping · reports",
+            "Discovery · metadata · video timeline · validasi envelope QR/MQ1 · korelasi kamera bila field di tersedia · grouping · reports. MQ1 tidak mengautentikasi penerbit.",
         )
         run.pack(fill="x", padx=34, pady=(0, 24))
         self.verify_status = tk.StringVar(
@@ -741,7 +747,7 @@ class WorkspaceMixin:
         self._button(output_row, "Browse", self._choose_output_dir).pack(side="right")
         tk.Label(
             output_panel,
-            text="METADATA_ONLY dipindahkan ke _UNNAMED untuk keputusan operator. Nama operasional dibuat dari QR MQ1 yang berhasil didekripsi dan lolos korelasi device ID. QR tidak mengautentikasi pembuatnya. Recording ambigu/tidak lengkap/bermasalah diblokir. Manifest hash lokal belum ditandatangani.",
+            text="QR hilang/gagal didekripsi masuk _UNNAMED. QR dengan envelope profil valid dan recording lolos pemeriksaan lokal dapat diberi nama operasional. Jika field di tidak dikirim, korelasi device ID diberi peringatan; MQ1 tidak mengautentikasi penerbit. Recording ambigu/tidak lengkap/bermasalah tetap diblokir.",
             bg=SURFACE,
             fg=SECONDARY,
             font=(FONT, 9),
@@ -1378,7 +1384,7 @@ class WorkspaceMixin:
 
         result_panel = self._panel(
             "DECRYPTED JSON",
-            "Hanya payload MQ1 zyb-recording/v1 yang lolos validasi ditampilkan sebagai JSON.",
+            "JSON ditampilkan setelah dekripsi dan validasi envelope zyb-recording/v1. Untuk validasi recording, jalankan Verify Recordings.",
         )
         result_panel.pack(fill="both", expand=True, padx=34, pady=(0, 14))
         tk.Label(
@@ -1425,6 +1431,9 @@ class WorkspaceMixin:
     def _display_qr_payload(self, token: str, payload: dict[str, Any]) -> None:
         import hashlib
 
+        valid, reasons = validate_zyb_payload(payload)
+        if not valid:
+            raise ValueError("Payload QR ditolak: " + " ".join(reasons))
         self.qr_payload = payload
         rendered = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
         self.qr_json_text.configure(state="normal")
@@ -1433,13 +1442,16 @@ class WorkspaceMixin:
         self.qr_json_text.configure(state="disabled")
         token_id = hashlib.sha256(token.encode("ascii")).hexdigest()[:16]
         self.qr_status_var.set(
-            f"MQ1 berhasil didekripsi dan payload valid. Token ID: {token_id}. "
-            "Identitas pembuat QR tidak diverifikasi oleh MQ1."
+            f"MQ1 didekripsi; envelope zyb-recording/v1 valid. Token ID: {token_id}. "
+            "Jalankan Verify Recordings untuk memeriksa recording dan device ID. "
+            "MQ1 tidak mengautentikasi penerbit QR."
         )
         self.qr_copy_button.configure(state="normal")
         self.qr_save_button.configure(state="normal")
         self._log_activity("AITQR MQ1 token decrypted to JSON")
-        self._set_status("QR MQ1 berhasil didekripsi; JSON siap disalin atau disimpan.")
+        self._set_status(
+            "Envelope QR valid; JSON siap disalin. Identitas penerbit tidak diautentikasi."
+        )
 
     def _decode_qr_token(self) -> None:
         token = self.qr_token_text.get("1.0", "end").strip()

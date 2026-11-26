@@ -122,7 +122,7 @@ def create_output_plan(
             )
             continue
         if (
-            recording.status is not ResultStatus.QR_DECRYPTED
+            recording.status not in {ResultStatus.QR_DECRYPTED, ResultStatus.VERIFIED_WITH_WARNING}
             or recording.trust_level < 1
             or recording.qr is None
             or recording.qr.status is not ResultStatus.QR_DECRYPTED
@@ -144,12 +144,14 @@ def create_output_plan(
                 recording.unit_paths,
                 recording.status.value,
                 True,
-                "Metadata QR terenkripsi MQ1 dipakai untuk melengkapi session.json; pengirim tidak diautentikasi.",
+                "Payload profil valid dan recording lolos pemeriksaan lokal; metadata QR dipakai untuk melengkapi session.json. MQ1 tidak mengautentikasi penerbit.",
                 {
                     "schema": "zyb-recording/v1",
                     "payload": dict(recording.qr.payload or {}),
                     "verification": {
                         "status": recording.qr.status.value,
+                        "recording_status": recording.status.value,
+                        "trust_level": recording.trust_level,
                         "token_id": recording.qr.token_id,
                         "token_version": recording.qr.token_version,
                         "source_video": recording.qr.source_video,

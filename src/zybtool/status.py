@@ -111,10 +111,17 @@ def evaluate_status(
                     ),
                 )
 
-    # MQ1 proves confidentiality and successful decryption, not sender identity.
+    # The recording passed local structure/timeline checks and its AITQR envelope
+    # was validated. MQ1 still cannot authenticate who issued the QR, so do not
+    # claim an unqualified VERIFIED result.
     if qr is not None:
         if qr.status is ResultStatus.QR_DECRYPTED:
-            return qr.status, 1, qr.reasons
+            return (
+                ResultStatus.VERIFIED_WITH_WARNING,
+                1,
+                qr.reasons
+                + ("Struktur metadata dan konsistensi timeline recording lolos pemeriksaan.",),
+            )
         return qr.status, 0, qr.reasons or ("QR tidak dapat didekripsi atau dikorelasikan.",)
 
     return ResultStatus.METADATA_ONLY, 0, ("QR terenkripsi belum ditemukan.",)

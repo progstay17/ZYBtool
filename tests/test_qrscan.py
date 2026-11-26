@@ -39,7 +39,33 @@ def test_payload_contract_validation_accepts_account_configured_fields() -> None
 
     ok, reasons = validate_zyb_payload({})
     assert not ok
-    assert "kosong" in reasons[0]
+    assert "profile" in reasons[0].lower()
+
+    invalid_version = _valid_payload()
+    invalid_version["pv"] = 2
+    ok, reasons = validate_zyb_payload(invalid_version)
+    assert not ok
+    assert "pv=1" in reasons[0]
+
+    invalid_session = _valid_payload()
+    invalid_session["s"] = "not-a-valid-session"
+    ok, reasons = validate_zyb_payload(invalid_session)
+    assert not ok
+    assert "session id" in reasons[0].lower()
+
+    custom_profile_payload = {
+        "p": "zyb-recording",
+        "pv": 1,
+        "s": "3F30WDDZWKDYPZJD",
+        "c": "testing",
+        "d": "ZY007",
+        "l": "MM3201",
+        "m": "test only",
+        "ss": "5",
+        "t": "Kitchen",
+    }
+    ok, reasons = validate_zyb_payload(custom_profile_payload)
+    assert ok and not reasons
 
 
 def test_metaqr_mq1_is_encrypted_and_needs_only_decoder_private_key() -> None:
@@ -98,9 +124,9 @@ def _recording(video_path: Path) -> RecordingResult:
     )
 
 
-def _video_with_token(tmp_path: Path) -> tuple[Path, str]:
+def _video_with_token(tmp_path: Path, payload: dict[str, object] | None = None) -> tuple[Path, str]:
     decoder = metaqr.generate_keypair()
-    token = metaqr.encode(_valid_payload(), decoder.public)
+    token = metaqr.encode(payload if payload is not None else _valid_payload(), decoder.public)
     qr_image = render(token, scale=2)
     video_path = tmp_path / "record" / "stereo" / "segment.mkv"
     meta_path = video_path.parent / "meta.json"
@@ -126,6 +152,40 @@ def test_mq1_video_scan_decrypts_payload_without_allowlist(tmp_path: Path) -> No
     assert result.signer_device_id is None
     assert result.payload == _valid_payload()
     assert result.token_id
+    assert "Device ID QR cocok" in result.reasons[0]
+
+
+def test_custom_account_payload_without_camera_id_is_decrypted_with_warning(
+    tmp_path: Path,
+) -> None:
+    payload = {
+        "p": "zyb-recording",
+        "pv": 1,
+        "s": "3F30WDDZWKDYPZJD",
+        "c": "testing",
+        "d": "ZY007",
+        "l": "MM3201",
+        "m": "test only",
+        "ss": "5",
+        "t": "Kitchen",
+    }
+    video_path, private_hex = _video_with_token(tmp_path, payload)
+    result = verify_recording_qr(
+        _recording(video_path), tmp_path, private_key=bytes.fromhex(private_hex)
+    )
+    assert result.status is ResultStatus.QR_DECRYPTED
+    assert result.payload == payload
+    assert "tidak mengirim field di" in result.reasons[0]
+
+
+def test_camera_device_id_mismatch_is_rejected(tmp_path: Path) -> None:
+    payload = _valid_payload(device_id="different-camera")
+    video_path, private_hex = _video_with_token(tmp_path, payload)
+    result = verify_recording_qr(
+        _recording(video_path), tmp_path, private_key=bytes.fromhex(private_hex)
+    )
+    assert result.status is ResultStatus.METADATA_MISMATCH
+    assert "tidak cocok" in result.reasons[0]
 
 
 def test_qr_is_still_detected_when_private_key_is_not_imported(tmp_path: Path) -> None:
