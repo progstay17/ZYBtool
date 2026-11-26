@@ -110,10 +110,11 @@ Arrange aman dijalankan ulang pada session.json yang sudah memiliki zybtool.qr_m
 - QR hilang tidak dipalsukan atau dipinjam dari sesi lain; recording tetap _UNNAMED sampai QR yang sesuai tersedia.
 
 
-## v0.2.14 ? penggabungan lanjutan kamera standalone
+## v0.2.15 ? pewarisan QR berdasarkan urutan nama folder
 
-- Potongan stereo_standalone pada tanggal capture yang sama otomatis dikelompokkan menjadi satu recording jika waktu mulai potongan berikutnya berada maksimal 5 menit setelah akhir potongan sebelumnya (berdasarkan created + session_sync.wall_s).
-- QR dipindai lintas seluruh potongan dalam urutan waktu. QR yang ditemukan pada potongan pertama menjadi identitas recording gabungan; potongan lanjutan tidak perlu mengulang QR.
-- Arrange memindahkan seluruh folder potongan ke satu folder bernama operasional yang sama. Setiap session.json menerima metadata QR sesi yang sama.
-- Peringatan kualitas sinkronisasi dari potongan mana pun tetap dipertahankan pada status gabungan VERIFIED_WITH_WARNING.
-- Potongan di tanggal berbeda, tanpa durasi/urutan yang dapat dibuktikan, atau terpisah lebih dari 5 menit tidak digabung otomatis.
+- Folder stereo_standalone diproses menurut nama folder dengan natural sort (mis. ..._2 sebelum ..._10).
+- Folder yang memiliki QR terdekripsi memulai kelompok recording baru dan menetapkan identitas QR aktif.
+- Folder berikutnya tanpa QR mengikuti QR terakhir sampai ditemukan QR baru.
+- Folder sebelum QR pertama tetap tidak teridentifikasi dan tidak boleh meminjam QR dari folder sesudahnya.
+- Pengelompokan tidak lagi memakai jeda waktu atau durasi capture.
+- Semua folder anggota kelompok dipindahkan bersama dalam satu folder Arrange dan menerima metadata QR kelompok yang sama.

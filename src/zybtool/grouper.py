@@ -82,36 +82,8 @@ def _duration(segments: tuple[Segment, ...]) -> float | None:
 
 
 def _standalone_continuation_groups(units: tuple[Unit, ...]) -> dict[str, tuple[Unit, ...]]:
-    """Join adjacent standalone camera chunks into one logical recording."""
-    standalone = sorted(
-        (unit for unit in units if unit.facts.standalone_stereo),
-        key=lambda unit: (
-            unit.facts.created_epoch if unit.facts.created_epoch is not None else float("inf"),
-            unit.facts.relative_path.casefold(),
-        ),
-    )
-    groups: list[list[Unit]] = []
-    for unit in standalone:
-        facts = unit.facts
-        if not groups:
-            groups.append([unit])
-            continue
-        previous = groups[-1][-1].facts
-        can_link = False
-        if (
-            facts.created_epoch is not None
-            and previous.created_epoch is not None
-            and previous.sync_wall_s is not None
-            and facts.capture_date is not None
-            and facts.capture_date == previous.capture_date
-        ):
-            gap = facts.created_epoch - (previous.created_epoch + previous.sync_wall_s)
-            can_link = -5.0 <= gap <= _STANDALONE_CONTINUATION_GAP_S
-        if can_link:
-            groups[-1].append(unit)
-        else:
-            groups.append([unit])
-    return {group[0].facts.relative_path: tuple(group) for group in groups if len(group) > 1}
+    """Standalone chunks are grouped later, after QR inheritance is resolved."""
+    return {}
 
 
 def group_recordings(

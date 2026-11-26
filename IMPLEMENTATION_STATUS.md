@@ -178,11 +178,11 @@ Arrange Folder uses MOVE with hash verification, journal and Undo. Excel Export 
 - Automated validation: 58 passed / 1 optional external-sample integration skipped; Ruff and mypy passed. No source recording was moved during these checks.
 
 
-## v0.2.14 ? standalone continuation grouping (verified against real camera files)
+## v0.2.15 ? QR inheritance follows natural folder-name order
 
-- User clarified that all eight folders under Downloads\records are continuation chunks of one logical recording and must share one output filename.
-- Grouping now links explicit stereo_standalone chunks only when capture dates match and the next chunk starts within -5 to +300 seconds of the previous chunk's created + session_sync.wall_s. This avoids filename-only guessing and avoids merging across days or long breaks.
-- QR verification scans all segments in chronological order. A QR on the first chunk is used as the identity for the complete grouped recording; subsequent chunks need not repeat the QR.
-- Real camera verification result: 8 units -> 1 recording, QR_DECRYPTED from the first segment, status VERIFIED_WITH_WARNING (trust 2) due to three preserved sync-quality warnings, total media duration 3332.831 seconds. Output plan contains exactly one named folder: 20261126_MM3208_fadhil_ZY009_S1_Bedroom, with all eight source unit paths and no blocked items.
-- Verification was read-only. No source folders or media files were moved. Arrange will move all eight chunks under this single operational folder when the operator confirms MOVE.
-- Automated validation: 60 passed / 1 optional external-sample integration skipped; Ruff, formatting, mypy, and diff checks passed.
+- Removed time-gap based standalone continuation grouping.
+- Standalone folders are naturally sorted by folder name before QR inheritance.
+- A successfully decrypted QR starts a new logical recording group.
+- Subsequent QR-less folders inherit the latest preceding QR until a new QR is found.
+- Leading QR-less folders remain separate/unidentified; no future QR is backfilled.
+- Added tests for natural ordering, multiple QR boundaries, leading missing QR, and no time-gap grouping.

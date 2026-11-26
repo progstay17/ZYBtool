@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,6 +43,92 @@ def _verify_qr_if_configured(
     return tuple(results)
 
 
+def _natural_path_key(value: str) -> tuple[object, ...]:
+    return tuple(
+        int(part) if part.isdigit() else part.casefold() for part in re.split(r"(\d+)", value)
+    )
+
+
+def _inherit_standalone_qr(
+    recordings: tuple[RecordingResult, ...],
+    units: tuple[Unit, ...],
+) -> tuple[RecordingResult, ...]:
+    """Assign QR-less standalone folders to the most recent preceding QR folder by name."""
+    by_path = {unit.facts.relative_path: unit.facts for unit in units}
+    standalone = sorted(
+        (
+            item
+            for item in recordings
+            if any(
+                by_path.get(path) and by_path[path].standalone_stereo for path in item.unit_paths
+            )
+        ),
+        key=lambda item: _natural_path_key(item.unit_paths[0]),
+    )
+    other = [item for item in recordings if item not in standalone]
+    output: list[RecordingResult] = []
+    pending: list[RecordingResult] = []
+    active_qr = None
+
+    def flush() -> None:
+        nonlocal pending
+        if not pending:
+            return
+        members = pending
+        pending = []
+        facts = tuple(
+            by_path[path] for item in members for path in item.unit_paths if path in by_path
+        )
+        segments = tuple(segment for item in members for segment in item.segments)
+        qr = active_qr
+        status, level, reasons = evaluate_status(facts, segments, qr=qr)
+        first = members[0]
+        durations: dict[str, float] = {}
+        for segment in segments:
+            if segment.video.duration_s is not None:
+                durations[segment.camera] = (
+                    durations.get(segment.camera, 0.0) + segment.video.duration_s
+                )
+        output.append(
+            replace(
+                first,
+                unit_paths=tuple(path for item in members for path in item.unit_paths),
+                segments=segments,
+                actual_duration_s=max(durations.values()) if durations else None,
+                status=status,
+                trust_level=level,
+                reasons=reasons,
+                qr=qr,
+            )
+        )
+
+    for item in standalone:
+        qr = item.qr
+        qr_is_absent = qr is None or (
+            qr.status is ResultStatus.QR_MISSING
+            and any(reason.startswith("Tidak ada QR terenkripsi") for reason in qr.reasons)
+        )
+        if not qr_is_absent:
+            # A visible but invalid/unreadable QR is still a boundary: never
+            # let later chunks accidentally inherit the previous recording ID.
+            if pending:
+                flush()
+            active_qr = qr
+            pending = [item]
+        elif active_qr is not None:
+            pending.append(item)
+        else:
+            # Before the first QR there is no trustworthy identity to inherit.
+            output.append(item)
+    flush()
+    return tuple(
+        sorted(
+            (*other, *output),
+            key=lambda item: (item.device_id or "", item.created_epoch or 0, item.recording_id),
+        )
+    )
+
+
 def run_verification(
     source_root: Path | str,
     *,
@@ -74,6 +161,7 @@ def run_verification(
         allow_missing_media=allow_missing_media,
     )
     recordings = _verify_qr_if_configured(recordings, units, source)
+    recordings = _inherit_standalone_qr(recordings, units)
 
     findings = tuple(
         Finding(

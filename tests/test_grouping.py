@@ -4,6 +4,8 @@ from zybtool.discovery import discover_units
 from zybtool.grouper import group_recordings
 from zybtool.models import (
     CsvTimeline,
+    QRVerification,
+    RecordingResult,
     ResultStatus,
     SessionFacts,
     Unit,
@@ -59,7 +61,7 @@ def _standalone_unit(root: Path, name: str, created: float, duration: float) -> 
     return Unit(path, facts)
 
 
-def test_standalone_continuations_are_grouped_when_capture_gaps_are_short(tmp_path: Path) -> None:
+def test_standalone_units_are_not_grouped_by_time_gap(tmp_path: Path) -> None:
     units = (
         _standalone_unit(tmp_path, "recording_stereo_223827", 1000.0, 452.0),
         _standalone_unit(tmp_path, "recording_stereo_224616", 1469.0, 387.0),
@@ -82,9 +84,8 @@ def test_standalone_continuations_are_grouped_when_capture_gaps_are_short(tmp_pa
 
     results = group_recordings(units, evidence)
 
-    assert len(results) == 1
-    assert results[0].unit_paths == tuple(unit.facts.relative_path for unit in units)
-    assert len(results[0].segments) == 3
+    assert len(results) == 3
+    assert [item.unit_paths for item in results] == [(unit.facts.relative_path,) for unit in units]
 
 
 def test_standalone_continuations_do_not_cross_long_gaps_or_dates(tmp_path: Path) -> None:
@@ -114,3 +115,91 @@ def test_standalone_continuations_do_not_cross_long_gaps_or_dates(tmp_path: Path
     results = group_recordings(units, {}, allow_missing_media=True)
 
     assert len(results) == 3
+
+
+def test_standalone_qr_identity_inherits_by_natural_folder_name(tmp_path: Path) -> None:
+    from zybtool.pipeline import _inherit_standalone_qr
+
+    names = ("recording_1", "recording_2", "recording_10", "recording_11", "recording_12")
+    units = tuple(
+        _standalone_unit(tmp_path, name, 1000.0 + index * 100.0, 10.0)
+        for index, name in enumerate(names)
+    )
+    qr_one = QRVerification(
+        ResultStatus.QR_DECRYPTED,
+        token_version=1,
+        token_id="qr-one",
+        payload={"p": "zyb-recording", "pv": 1, "s": "0000000000000001"},
+    )
+    qr_two = QRVerification(
+        ResultStatus.QR_DECRYPTED,
+        token_version=1,
+        token_id="qr-two",
+        payload={"p": "zyb-recording", "pv": 1, "s": "0000000000000002"},
+    )
+    recordings = tuple(
+        RecordingResult(
+            recording_id=f"id-{index}",
+            unit_paths=(unit.facts.relative_path,),
+            device_id=None,
+            created_epoch=unit.facts.created_epoch,
+            segments=(),
+            actual_duration_s=None,
+            status=ResultStatus.QR_DECRYPTED if index in (0, 2) else ResultStatus.QR_MISSING,
+            trust_level=3 if index in (0, 2) else 0,
+            qr=qr_one
+            if index == 0
+            else qr_two
+            if index == 2
+            else QRVerification(
+                ResultStatus.QR_MISSING,
+                reasons=(
+                    "Tidak ada QR terenkripsi Metaqr yang ditemukan pada jendela pemindaian.",
+                ),
+            ),
+        )
+        for index, unit in enumerate(units)
+    )
+
+    grouped = _inherit_standalone_qr(recordings, units)
+
+    assert len(grouped) == 2
+    assert grouped[0].unit_paths == ("recording_1", "recording_2")
+    assert grouped[0].qr is not None and grouped[0].qr.token_id == "qr-one"
+    assert grouped[1].unit_paths == ("recording_10", "recording_11", "recording_12")
+    assert grouped[1].qr is not None and grouped[1].qr.token_id == "qr-two"
+
+
+def test_standalone_without_preceding_qr_remains_unidentified(tmp_path: Path) -> None:
+    from zybtool.pipeline import _inherit_standalone_qr
+
+    units = (
+        _standalone_unit(tmp_path, "recording_1", 1000.0, 10.0),
+        _standalone_unit(tmp_path, "recording_2", 1100.0, 10.0),
+    )
+    recordings = tuple(
+        RecordingResult(
+            recording_id=f"id-{index}",
+            unit_paths=(unit.facts.relative_path,),
+            device_id=None,
+            created_epoch=unit.facts.created_epoch,
+            segments=(),
+            actual_duration_s=None,
+            status=ResultStatus.QR_MISSING,
+            trust_level=0,
+            qr=QRVerification(
+                ResultStatus.QR_MISSING,
+                reasons=(
+                    "Tidak ada QR terenkripsi Metaqr yang ditemukan pada jendela pemindaian.",
+                ),
+            ),
+        )
+        for index, unit in enumerate(units)
+    )
+
+    grouped = _inherit_standalone_qr(recordings, units)
+
+    assert len(grouped) == 2
+    assert all(
+        item.qr is not None and item.qr.status is ResultStatus.QR_MISSING for item in grouped
+    )
