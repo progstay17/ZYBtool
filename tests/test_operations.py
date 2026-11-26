@@ -119,8 +119,8 @@ def test_arrange_merges_same_zyw_group_and_undoes_runs_individually(tmp_path: Pa
             created_epoch=None,
             segments=(),
             actual_duration_s=12.5,
-            status=ResultStatus.QR_DECRYPTED,
-            trust_level=1,
+            status=ResultStatus.VERIFIED,
+            trust_level=3,
             qr=qr,
         )
         for rid, unit in zip(("a" * 32, "b" * 32), facts, strict=True)

@@ -160,7 +160,7 @@ Rekaman saat ini **belum memuat QR** (konfirmasi pemilik), jadi urutan dimulai d
 | Tahap | Isi | Keluaran |
 |---|---|---|
 | M1 | Discovery, parser metadata, scanner video (timeline/durasi), grouper, laporan. Tanpa QR → `METADATA_ONLY`. | Laporan atas sampel nyata. |
-| M2 | Scanner QR + dekripsi MQ1 (vektor uji Metaqr/AITQR) + korelasi metadata dasar. | Level 1; sender tidak diautentikasi. |
+| M2 | Scanner QR + dekripsi MQ1 + validasi envelope + pemeriksaan recording. | VERIFIED jika seluruh pemeriksaan lolos; MQ1 hanya mengenkripsi. |
 | M3 | Arrange MOVE + Undo journal, Excel Export ala ZYWTool. | `ZYB_Output/` + workbook. |
 | Roadmap | Rotasi kunci decoder, antarmuka supervisor, manifest bertanda tangan, integrasi API perangkat (bila diperlukan). | — |
 

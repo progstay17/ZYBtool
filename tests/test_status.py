@@ -11,7 +11,7 @@ from zybtool.models import (
 from zybtool.status import evaluate_status
 
 
-def test_decrypted_valid_qr_is_verified_with_sender_authentication_warning() -> None:
+def test_decrypted_valid_qr_is_verified_without_sender_authentication_requirement() -> None:
     facts = (
         SessionFacts(
             relative_path="recording",
@@ -44,11 +44,12 @@ def test_decrypted_valid_qr_is_verified_with_sender_authentication_warning() -> 
             "ss": "5",
             "t": "Kitchen",
         },
-        reasons=("Envelope profil valid. MQ1 tidak mengautentikasi penerbit QR.",),
+        reasons=("Envelope profil valid dan berhasil didekripsi.",),
     )
 
     status, trust, reasons = evaluate_status(facts, segments, qr=qr)
 
-    assert status is ResultStatus.VERIFIED_WITH_WARNING
-    assert trust == 1
-    assert any("tidak mengautentikasi" in reason.lower() for reason in reasons)
+    assert status is ResultStatus.VERIFIED
+    assert trust == 3
+    assert any("berhasil didekripsi" in reason.lower() for reason in reasons)
+    assert not any("warning" in reason.lower() for reason in reasons)

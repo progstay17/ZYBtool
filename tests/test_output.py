@@ -39,8 +39,8 @@ def _report(
         created_epoch=None,
         segments=(),
         actual_duration_s=None,
-        status=ResultStatus.VERIFIED_WITH_WARNING if decrypted else ResultStatus.METADATA_ONLY,
-        trust_level=1 if decrypted else 0,
+        status=ResultStatus.VERIFIED if decrypted else ResultStatus.METADATA_ONLY,
+        trust_level=3 if decrypted else 0,
         qr=qr,
     )
     return VerificationReport(

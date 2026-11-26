@@ -284,7 +284,7 @@ class WorkspaceMixin:
             ("FOLDERS DISCOVERED", str(len(report.units)) if report else "—"),
             ("RECORDINGS", str(len(report.recordings)) if report else "—"),
             (
-                "VERIFIED + WARNING",
+                "VERIFIED",
                 str(counts[ResultStatus.VERIFIED_WITH_WARNING] + counts[ResultStatus.VERIFIED])
                 if report
                 else "?",
@@ -417,7 +417,7 @@ class WorkspaceMixin:
         self._button(row2, "Browse", self._choose_report_dir).pack(side="right")
         run = self._panel(
             "3. Verification",
-            "Discovery · metadata · video timeline · validasi envelope QR/MQ1 · korelasi kamera bila field di tersedia · grouping · reports. MQ1 tidak mengautentikasi penerbit.",
+            "Discovery ? metadata ? video timeline ? dekripsi MQ1 ? validasi envelope ? korelasi kamera bila field di tersedia ? grouping ? reports.",
         )
         run.pack(fill="x", padx=34, pady=(0, 24))
         self.verify_status = tk.StringVar(
@@ -747,7 +747,7 @@ class WorkspaceMixin:
         self._button(output_row, "Browse", self._choose_output_dir).pack(side="right")
         tk.Label(
             output_panel,
-            text="QR hilang/gagal didekripsi masuk _UNNAMED. QR dengan envelope profil valid dan recording lolos pemeriksaan lokal dapat diberi nama operasional. Jika field di tidak dikirim, korelasi device ID diberi peringatan; MQ1 tidak mengautentikasi penerbit. Recording ambigu/tidak lengkap/bermasalah tetap diblokir.",
+            text="QR hilang/gagal didekripsi masuk _UNNAMED. QR MQ1 yang berhasil didekripsi, memiliki envelope valid, dan recording yang lolos pemeriksaan lokal dapat diberi nama operasional. Field di bersifat opsional; jika tersedia, nilainya dibandingkan dengan device_id kamera. Recording ambigu/tidak lengkap/bermasalah tetap diblokir.",
             bg=SURFACE,
             fg=SECONDARY,
             font=(FONT, 9),
@@ -1444,14 +1444,12 @@ class WorkspaceMixin:
         self.qr_status_var.set(
             f"MQ1 didekripsi; envelope zyb-recording/v1 valid. Token ID: {token_id}. "
             "Jalankan Verify Recordings untuk memeriksa recording dan device ID. "
-            "MQ1 tidak mengautentikasi penerbit QR."
+            "MQ1 digunakan untuk enkripsi; autentikasi penerbit bukan bagian dari protokol."
         )
         self.qr_copy_button.configure(state="normal")
         self.qr_save_button.configure(state="normal")
         self._log_activity("AITQR MQ1 token decrypted to JSON")
-        self._set_status(
-            "Envelope QR valid; JSON siap disalin. Identitas penerbit tidak diautentikasi."
-        )
+        self._set_status("Envelope QR valid; JSON siap disalin.")
 
     def _decode_qr_token(self) -> None:
         token = self.qr_token_text.get("1.0", "end").strip()

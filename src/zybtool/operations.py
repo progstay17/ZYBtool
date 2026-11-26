@@ -392,13 +392,13 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
                 "; ".join(rec.unit_paths),
                 rec.status.value,
                 qr.token_id if qr else "",
-                "Tidak diautentikasi (MQ1)"
-                if qr and qr.status is ResultStatus.QR_DECRYPTED
-                else "-",
+                "Enkripsi MQ1" if qr and qr.status is ResultStatus.QR_DECRYPTED else "-",
                 qr.time_s if qr else None,
                 payload.get("r", ""),
                 payload.get("dn", ""),
-                "Perlu review" if rec.trust_level < 3 else "Terverifikasi",
+                "Perlu review"
+                if rec.status is not ResultStatus.VERIFIED or rec.trust_level < 3
+                else "Terverifikasi",
                 " | ".join(qr.reasons) if qr else "QR belum diverifikasi",
             ]
         )

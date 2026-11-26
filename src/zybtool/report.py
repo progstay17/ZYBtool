@@ -62,9 +62,7 @@ def report_csv(report: VerificationReport) -> bytes:
                 len(item.segments),
                 "" if item.actual_duration_s is None else f"{item.actual_duration_s:.3f}",
                 qr.status.value if qr else "",
-                "Tidak diautentikasi (MQ1)"
-                if qr and qr.status is ResultStatus.QR_DECRYPTED
-                else "",
+                "Enkripsi MQ1" if qr and qr.status is ResultStatus.QR_DECRYPTED else "",
                 (qr.token_id or "") if qr else "",
                 "" if not qr or qr.time_s is None else f"{qr.time_s:.3f}",
                 " | ".join(item.reasons),
@@ -84,9 +82,7 @@ def report_html(report: VerificationReport) -> bytes:
         )
         qr = item.qr
         qr_status = html.escape(qr.status.value if qr else "BELUM_DIPINDAI")
-        signer = (
-            "Tidak diautentikasi (MQ1)" if qr and qr.status is ResultStatus.QR_DECRYPTED else "-"
-        )
+        signer = "Enkripsi MQ1" if qr and qr.status is ResultStatus.QR_DECRYPTED else "-"
         qr_time = f"{qr.time_s:.3f} s" if qr and qr.time_s is not None else "—"
         rows.append(
             "<tr>"
@@ -113,7 +109,7 @@ table{{width:100%;border-collapse:collapse}}th,td{{text-align:left;padding:12px;
 <h1>ZYB Tool — Laporan Verifikasi</h1>
 <div class="muted">Run {html.escape(report.run_id)} · Dibuat {html.escape(report.generated_at)}</div>
 <div class="panel"><div class="muted">Folder sumber (read-only)</div><code>{source}</code>
-<p class="notice">VERIFIED_WITH_WARNING berarti envelope payload dan pemeriksaan recording lolos. MQ1 memberikan enkripsi dan integritas token, tetapi tidak mengautentikasi identitas penerbit. Bila field di tidak dikirim, pencocokan ID kamera tidak dapat dilakukan.</p></div>
+<p class="notice">VERIFIED berarti QR MQ1 berhasil didekripsi, envelope payload valid, dan pemeriksaan recording lolos. MQ1 digunakan untuk enkripsi; identitas penerbit bukan bagian dari kriteria verifikasi. Field di bersifat opsional dan hanya dibandingkan bila tersedia.</p></div>
 <div class="panel"><table><thead><tr><th>Status</th><th>Recording</th><th>Device</th><th>Segment</th><th>Durasi aktual</th><th>Bukti QR/MQ1</th><th>Alasan / temuan</th></tr></thead>
 <tbody>{body}</tbody></table></div></main></body></html>"""
     return page.encode("utf-8")

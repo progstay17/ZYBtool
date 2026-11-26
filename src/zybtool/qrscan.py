@@ -251,15 +251,9 @@ def verify_recording_qr(
                 continue
             token_id = hashlib.sha256(token.encode("ascii")).hexdigest()[:16]
             if "di" not in payload:
-                correlation_note = (
-                    "Profil QR tidak mengirim field di; ID kamera native belum dapat "
-                    "dikorelasikan secara langsung."
-                )
+                correlation_note = "Field di bersifat opsional dan tidak dikirim oleh profil ini."
             elif recording.device_id is None:
-                correlation_note = (
-                    "Payload memiliki device ID, tetapi session kamera tidak menyediakan "
-                    "device_id untuk dibandingkan."
-                )
+                correlation_note = "Payload memiliki field di; session kamera tidak menyediakan device_id untuk dibandingkan."
             else:
                 correlation_note = "Device ID QR cocok dengan device_id pada session kamera."
             return QRVerification(
@@ -271,9 +265,8 @@ def verify_recording_qr(
                 time_s=scan.first_seen_s.get(token),
                 votes=votes,
                 reasons=(
-                    "Envelope profil zyb-recording/v1 valid dan QR ditemukan pada video. "
-                    + correlation_note
-                    + " MQ1 tidak mengautentikasi identitas penerbit QR.",
+                    "Envelope profil zyb-recording/v1 valid dan QR berhasil didekripsi. "
+                    + correlation_note,
                 ),
             )
     return best_error or QRVerification(

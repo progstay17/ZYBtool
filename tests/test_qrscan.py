@@ -155,7 +155,7 @@ def test_mq1_video_scan_decrypts_payload_without_allowlist(tmp_path: Path) -> No
     assert "Device ID QR cocok" in result.reasons[0]
 
 
-def test_custom_account_payload_without_camera_id_is_decrypted_with_warning(
+def test_custom_account_payload_without_camera_id_is_decrypted_without_warning(
     tmp_path: Path,
 ) -> None:
     payload = {
@@ -175,7 +175,7 @@ def test_custom_account_payload_without_camera_id_is_decrypted_with_warning(
     )
     assert result.status is ResultStatus.QR_DECRYPTED
     assert result.payload == payload
-    assert "tidak mengirim field di" in result.reasons[0]
+    assert "opsional" in result.reasons[0]
 
 
 def test_camera_device_id_mismatch_is_rejected(tmp_path: Path) -> None:

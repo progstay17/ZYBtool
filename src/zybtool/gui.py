@@ -293,7 +293,7 @@ class ZYBToolApp(WorkspaceMixin):
         ).pack(anchor="w", pady=(14, 0))
         tk.Label(
             handoff,
-            text="MQ1 mengenkripsi isi QR, tetapi tidak mengautentikasi pembuatnya. Siapa pun yang memiliki public key dapat membuat token yang bisa didekripsi.",
+            text="MQ1 digunakan untuk mengenkripsi isi QR. ZYBTool mendekripsi dengan private key lokal dan memvalidasi envelope payload.",
             bg=SURFACE,
             fg=AMBER,
             font=(FONT, 9),

@@ -26,7 +26,7 @@ Implemented in the local source:
 - Decoder private key is protected with Windows DPAPI under the current Windows user profile; no plaintext fallback. CLI supports local key generation, concealed private-key import, public-key export, allow-list import, status and key removal.
 - JSON/CSV/HTML reports include QR status, signer, token ID and first-seen time when scanning is configured.
 - Approved output copies can enrich the existing camera session.json under zybtool.qr_metadata; native fields and source files are preserved. Verified QR output is blocked if the native session.json is missing or the enrichment namespace already exists. The manifest records both source and enriched output hashes.
-- Trust is deliberately capped at level 2 and reported as VERIFIED_WITH_WARNING. The remaining time/session/camera correlations and signed manifest are not claimed complete.
+- Historical note (superseded by v0.2.11): the earlier trust model capped MQ1 results as VERIFIED_WITH_WARNING. Current MQ1 acceptance semantics are documented in the superseding correction at the end of this file.
 
 ## Validation on local Windows workstation (2026-11-25)
 
@@ -137,10 +137,19 @@ Arrange Folder uses MOVE with hash verification, journal and Undo. Excel Export 
 ## Superseding update 2026-11-26 — QR envelope verification and Arrange naming
 
 - A successful MQ1 decrypt is now followed by consumer validation of the stable AITQR envelope: p=zyb-recording, pv=1, and a 16-character Crockford Base32 session ID s. Account-defined payload fields remain flexible.
-- If the payload contains di, it must be non-empty and match session.json.device_id; a mismatch is METADATA_MISMATCH and is not eligible for Arrange. If the account profile omits di, the report explicitly warns that direct camera-ID correlation is unavailable.
-- When the recording metadata and video timeline pass and the QR envelope is valid, the recording result is VERIFIED_WITH_WARNING (trust level 1). The QR sub-status remains QR_DECRYPTED. This is intentionally not VERIFIED: MQ1 encrypts the payload but does not authenticate who issued the QR.
-- Arrange accepts VERIFIED_WITH_WARNING records and uses the configured field map (including account keys such as c, d, l, ss, and t). Missing/undecryptable QR remains _UNNAMED; malformed envelopes and mismatched device IDs are rejected from naming.
+- If the payload contains di and session.json.device_id is available, it must be non-empty and match; a mismatch is METADATA_MISMATCH and is not eligible for Arrange. Omitting di is accepted without warning.
+- Corrected MQ1 semantics: when the recording metadata and video timeline pass and the decrypted QR envelope is valid, the recording result is VERIFIED (trust level 3). The QR sub-status remains QR_DECRYPTED. MQ1 is intentionally encryption-only; issuer identity is not a protocol requirement and does not create a warning.
+- The payload field di is optional. When present and session.json.device_id is available, the values must match; a mismatch is METADATA_MISMATCH. Missing di is accepted without warning. Arrange accepts only VERIFIED records with a successfully decrypted QR; missing/undecryptable QR remains _UNNAMED.
 - QR Decoder now validates the envelope before presenting JSON as a valid ZYB payload.
 - Regression tests cover custom account fields, invalid profile/version/session IDs, missing optional di, and mismatched di.
 - Validation on Windows: pytest 53 passed / 1 optional external-sample integration test skipped; Ruff check and format check passed; mypy passed for 20 source modules.
-- Release target: v0.2.10. MQ1 issuer authentication remains out of scope unless the AITQR/ZYBTool protocol is deliberately extended with an issuer signature.
+- Superseding release target: v0.2.11. No issuer signature, signing key, or allow-list is introduced.
+
+
+## Superseding correction 2026-11-26 ? MQ1 encryption-only semantics (v0.2.11)
+
+- The user confirmed MQ1 is intended to provide encryption only. No issuer identity proof is required; no signature, signing key, allow-list, or protocol expansion is added.
+- QR decrypt + valid zyb-recording/v1 envelope + passing metadata/video timeline checks now yields VERIFIED (trust level 3). QR sub-status remains QR_DECRYPTED.
+- Payload di is optional. If supplied and the native session device_id is available, compare them; mismatch remains METADATA_MISMATCH. Omission is not a warning and does not prevent Arrange naming.
+- Arrange accepts VERIFIED only. Missing/failed QR, invalid envelope, mismatched supplied di, incomplete/corrupt/ambiguous recordings remain excluded or routed to their existing safe folders.
+- Windows validation: 53 passed, 1 optional external-sample integration skipped; Ruff check/format and mypy passed. Main-profile dummy integration confirms the QR-bearing recording is VERIFIED and named; the no-QR control remains QR_MISSING and _UNNAMED.
