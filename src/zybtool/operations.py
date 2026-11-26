@@ -96,13 +96,41 @@ def execute_move_plan(plan: OutputPlan, *, confirmed: bool = False) -> Path:
                         if not isinstance(session, dict):
                             raise ValueError(f"session.json bukan object: {session_path}")
                         namespace = session.setdefault("zybtool", {})
-                        if not isinstance(namespace, dict) or "qr_metadata" in namespace:
-                            raise ValueError(f"Konflik zybtool.qr_metadata: {session_path}")
-                        namespace["qr_metadata"] = item.qr_metadata
-                        session_path.write_text(
-                            json.dumps(session, ensure_ascii=False, indent=2) + "\n",
-                            encoding="utf-8",
-                        )
+                        if not isinstance(namespace, dict):
+                            raise ValueError(
+                                f"Konflik namespace zybtool pada session.json: {session_path}"
+                            )
+                        existing_metadata = namespace.get("qr_metadata")
+                        if existing_metadata is not None:
+                            if not isinstance(existing_metadata, dict):
+                                raise ValueError(
+                                    f"Konflik zybtool.qr_metadata (format lama tidak valid): {session_path}"
+                                )
+                            # Same QR payload is safe to re-arrange. Refresh verification
+                            # details after software updates, preserving unrelated metadata.
+                            if existing_metadata.get("schema") != item.qr_metadata.get(
+                                "schema"
+                            ) or existing_metadata.get("payload") != item.qr_metadata.get(
+                                "payload"
+                            ):
+                                raise ValueError(
+                                    f"Konflik zybtool.qr_metadata: payload QR yang sudah ada berbeda "
+                                    f"dengan QR recording ini ({session_path})"
+                                )
+                            merged_metadata = dict(existing_metadata)
+                            merged_metadata.update(item.qr_metadata)
+                            if merged_metadata != existing_metadata:
+                                namespace["qr_metadata"] = merged_metadata
+                                session_path.write_text(
+                                    json.dumps(session, ensure_ascii=False, indent=2) + "\n",
+                                    encoding="utf-8",
+                                )
+                        else:
+                            namespace["qr_metadata"] = item.qr_metadata
+                            session_path.write_text(
+                                json.dumps(session, ensure_ascii=False, indent=2) + "\n",
+                                encoding="utf-8",
+                            )
                 for rel, digest in sorted(_tree_hashes(staged_destination).items()):
                     file_path = staged_destination / Path(rel)
                     manifest_files.append(

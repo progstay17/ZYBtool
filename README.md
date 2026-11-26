@@ -97,3 +97,6 @@ Arrange Folder menggunakan format grup yang sama dengan ZYWTool: YYYYMMDD_MMxx_N
 Arrange melakukan MOVE, bukan copy. Folder Organized yang sudah berisi grup sebelumnya dapat digunakan kembali; folder sesi yang bentrok tidak akan ditimpa. Sebelum eksekusi, ZYBTool menampilkan preview dan meminta konfirmasi, memeriksa SHA-256, dan menyimpan jurnal per proses untuk Undo. Jangan mematikan PC atau mencabut media selama MOVE berjalan.
 
 Excel Export menghasilkan workbook empat sheet: ZY White, Cek File, Scan Audit, dan Rekonsiliasi. Saat export ulang, kolom QC/status/supervisor manual dipertahankan dan workbook lama dibuatkan backup bertimestamp. Hand Check dan Preview Frames tidak termasuk scope.
+
+
+Arrange aman dijalankan ulang pada session.json yang sudah memiliki zybtool.qr_metadata: payload QR yang sama akan memperbarui detail verifikasi, sedangkan payload yang berbeda tetap memicu konflik agar metadata lama tidak tertimpa.

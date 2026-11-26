@@ -153,3 +153,12 @@ Arrange Folder uses MOVE with hash verification, journal and Undo. Excel Export 
 - Payload di is optional. If supplied and the native session device_id is available, compare them; mismatch remains METADATA_MISMATCH. Omission is not a warning and does not prevent Arrange naming.
 - Arrange accepts VERIFIED only. Missing/failed QR, invalid envelope, mismatched supplied di, incomplete/corrupt/ambiguous recordings remain excluded or routed to their existing safe folders.
 - Windows validation: 53 passed, 1 optional external-sample integration skipped; Ruff check/format and mypy passed. Main-profile dummy integration confirms the QR-bearing recording is VERIFIED and named; the no-QR control remains QR_MISSING and _UNNAMED.
+
+
+## v0.2.12 ? Arrange metadata merge fix
+
+- Arrange no longer fails merely because session.json already contains zybtool.qr_metadata.
+- If existing metadata has the same schema and decrypted QR payload, the operation is idempotent and refreshes the verification block (including current VERIFIED status and trust level), preserving other existing metadata.
+- If the existing QR payload differs, Arrange still stops and rolls back rather than silently overwriting a different QR record.
+- Regression coverage includes upgrading an earlier VERIFIED_WITH_WARNING metadata block to current VERIFIED metadata.
+- Main-profile integration test: QR recording arranged successfully, no-QR control remained _UNNAMED, MOVE completed, and Undo restored both source folders.

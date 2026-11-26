@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -94,7 +95,18 @@ def test_arrange_merges_same_zyw_group_and_undoes_runs_individually(tmp_path: Pa
     source = tmp_path / "source"
     first = source / "recording_primary_first"
     first.mkdir(parents=True)
-    (first / "session.json").write_text("{}", encoding="utf-8")
+    # A previous Arrange run already added this exact QR payload using the
+    # older verification status. Re-arranging must refresh verification data,
+    # not fail just because the metadata namespace already exists.
+    old_qr_metadata = {
+        "schema": "zyb-recording/v1",
+        "payload": {"b": "MM12", "r": "Recorder A", "dn": "ZY123", "sh": 2, "a": "Bedroom"},
+        "verification": {"recording_status": "VERIFIED_WITH_WARNING", "trust_level": 1},
+    }
+    (first / "session.json").write_text(
+        json.dumps({"zybtool": {"qr_metadata": old_qr_metadata}}),
+        encoding="utf-8",
+    )
     second = source / "recording_primary_second"
     second.mkdir(parents=True)
     (second / "session.json").write_text("{}", encoding="utf-8")
@@ -140,6 +152,11 @@ def test_arrange_merges_same_zyw_group_and_undoes_runs_individually(tmp_path: Pa
     group = target / "20261125_MM12_RecorderA_ZY123_S2_Bedroom"
     assert (group / "recording_primary_first" / "session.json").is_file()
     assert (group / "recording_primary_second" / "session.json").is_file()
+    refreshed = json.loads(
+        (group / "recording_primary_first" / "session.json").read_text(encoding="utf-8")
+    )
+    assert refreshed["zybtool"]["qr_metadata"]["verification"]["recording_status"] == "VERIFIED"
+    assert refreshed["zybtool"]["qr_metadata"]["verification"]["trust_level"] == 3
     assert undo_move(target) == 1
     assert (source / "recording_primary_second" / "session.json").is_file()
     assert (group / "recording_primary_first" / "session.json").is_file()
