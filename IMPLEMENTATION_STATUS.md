@@ -126,3 +126,9 @@ Arrange Folder uses MOVE with hash verification, journal and Undo. Excel Export 
 - Excel Export writes ZYB_Rekap.xlsx automatically into the configured Excel output folder.
 - Validation on local Windows workstation: Ruff check passed, Ruff format check passed, mypy passed (18 source files), 34 tests passed, 1 optional sample integration test skipped. Hidden Tkinter UI smoke check opened Preferences and Arrange Folder pages successfully. PyInstaller portable executable --self-test passed; ZIP integrity passed.
 - Portable ZIP SHA-256: DB33068AFB4E16C9FAD68751FD884799EEF7D3FFA8710A497CD50B37BF81A397.
+
+## Release validation 2026-11-26 — v0.2.9 candidate
+
+- Local Windows portable build created with PyInstaller 6.22.3 from the current main source; the executable launched successfully in an isolated temporary profile and remained running with the ZYBTool window visible. The real user profile was not opened or modified during the smoke test.
+- Current automated validation: Ruff check passed, Ruff format check passed, mypy passed for 20 source modules, and pytest reported 50 passed / 1 optional external-sample integration test skipped (ZYB_SAMPLES_DIR not configured).
+- Preferences persistence and the Preferences/Arrange Folder visual workflow still require a manual GUI check on the target workstation before operational sign-off.
