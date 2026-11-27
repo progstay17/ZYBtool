@@ -31,7 +31,11 @@ def _report(
     )
     recording_root = source / "recording_primary_demo"
     total_size_bytes = (
-        sum(path.stat(follow_symlinks=False).st_size for path in recording_root.rglob("*") if path.is_file())
+        sum(
+            path.stat(follow_symlinks=False).st_size
+            for path in recording_root.rglob("*")
+            if path.is_file()
+        )
         if recording_root.is_dir()
         else 0
     )
