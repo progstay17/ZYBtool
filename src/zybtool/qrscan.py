@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import re
@@ -98,11 +99,9 @@ def scan_video_tokens(
             if stream is None:
                 raise RuntimeError("Video stream tidak ditemukan")
             if start > 0:
-                try:
+                # Some containers cannot seek; decoding from the beginning remains correct.
+                with contextlib.suppress(OSError, av.error.FFmpegError, ValueError, OverflowError):
                     _seek_to_start(container, stream, start)
-                except (OSError, av.error.FFmpegError, ValueError, OverflowError):
-                    # Some containers cannot seek; decoding from the beginning remains correct.
-                    pass
             rectangles: tuple[tuple[str, tuple[int, int, int, int]], ...] | None = None
             for frame in container.decode(stream):
                 if not isinstance(frame, av.VideoFrame):
