@@ -347,26 +347,48 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         group["recording_ids"].append(rec.recording_id)
         group["folders"].extend(rec.unit_paths)
         group["duration_s"] += float(rec.actual_duration_s or 0.0)
-        group["size_bytes"] += sum(max(0, int(segment.video.size_bytes)) for segment in rec.segments)
+        group["size_bytes"] += sum(
+            max(0, int(segment.video.size_bytes)) for segment in rec.segments
+        )
         group["segments"] += len(rec.segments)
         group["qr_statuses"].append(rec.qr.status.value if rec.qr else "NOT_SCANNED")
         group["trust_levels"].append(rec.trust_level)
 
     headers = [
-        "Device ID", "Tanggal", "Aktivitas", "Lokasi", "Shift", "Recorder",
-        "Durasi (jam)", "Jumlah Sesi", "Total Data (GB)", "Jumlah Segment",
-        "Status QR", "Trust Level", "Source Folder", "Recording ID",
-        *MANUAL_HEADERS, "Group Key",
+        "Device ID",
+        "Tanggal",
+        "Aktivitas",
+        "Lokasi",
+        "Shift",
+        "Recorder",
+        "Durasi (jam)",
+        "Jumlah Sesi",
+        "Total Data (GB)",
+        "Jumlah Segment",
+        "Status QR",
+        "Trust Level",
+        "Source Folder",
+        "Recording ID",
+        *MANUAL_HEADERS,
+        "Group Key",
     ]
     ws = wb.create_sheet("ZY White")
     ws.append(headers)
-    for values, group in sorted(groups.items(), key=lambda item: tuple(str(v).casefold() for v in item[0])):
+    for values, group in sorted(
+        groups.items(), key=lambda item: tuple(str(v).casefold() for v in item[0])
+    ):
         key = _excel_group_key(values)
         manual = old_manual_by_group.get(key)
         if manual is None:
-            legacy = [old_manual_by_recording.get(recording_id) for recording_id in group["recording_ids"]]
+            legacy = [
+                old_manual_by_recording.get(recording_id) for recording_id in group["recording_ids"]
+            ]
             present = [value for value in legacy if value is not None]
-            manual = present[0] if present and all(value == present[0] for value in present) else (None,) * len(MANUAL_HEADERS)
+            manual = (
+                present[0]
+                if present and all(value == present[0] for value in present)
+                else (None,) * len(MANUAL_HEADERS)
+            )
         row = [
             *values,
             group["duration_s"] / 3600,
@@ -385,8 +407,17 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
 
     check = wb.create_sheet("Cek File")
     check.append(
-        ["Recording ID", "Recording", "Status", "Trust", "QR Status", "Segment",
-         "Durasi (s)", "Ukuran (bytes)", "Masalah / Alasan"]
+        [
+            "Recording ID",
+            "Recording",
+            "Status",
+            "Trust",
+            "QR Status",
+            "Segment",
+            "Durasi (s)",
+            "Ukuran (bytes)",
+            "Masalah / Alasan",
+        ]
     )
     for rec in report.recordings:
         check.append(
@@ -405,37 +436,73 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
 
     audit = wb.create_sheet("Scan Audit")
     audit.append(
-        ["Path", "Kind", "Device", "Object ID", "Capture Date", "MKV", "CSV IMU",
-         "Missing Files", "Warnings", "Sync OK", "Restart Count"]
+        [
+            "Path",
+            "Kind",
+            "Device",
+            "Object ID",
+            "Capture Date",
+            "MKV",
+            "CSV IMU",
+            "Missing Files",
+            "Warnings",
+            "Sync OK",
+            "Restart Count",
+        ]
     )
     for unit in report.units:
         audit.append(
             [
-                unit.relative_path, unit.kind.value, unit.device_id, unit.object_id,
-                unit.capture_date, len(unit.mkv_paths), len(unit.csv_timelines),
-                " | ".join(unit.missing_files), " | ".join(unit.warnings),
-                unit.sync_ok, unit.restart_count,
+                unit.relative_path,
+                unit.kind.value,
+                unit.device_id,
+                unit.object_id,
+                unit.capture_date,
+                len(unit.mkv_paths),
+                len(unit.csv_timelines),
+                " | ".join(unit.missing_files),
+                " | ".join(unit.warnings),
+                unit.sync_ok,
+                unit.restart_count,
             ]
         )
 
     recon = wb.create_sheet("Rekonsiliasi")
     recon.append(
-        ["Recording ID", "Folder", "Status Scan", "QR Token", "QR Encryption",
-         "QR First Seen (s)", "Payload Recorder", "Payload Device", "Payload Location",
-         "Payload Shift", "Payload Activity", "Hasil Korelasi", "Catatan"]
+        [
+            "Recording ID",
+            "Folder",
+            "Status Scan",
+            "QR Token",
+            "QR Encryption",
+            "QR First Seen (s)",
+            "Payload Recorder",
+            "Payload Device",
+            "Payload Location",
+            "Payload Shift",
+            "Payload Activity",
+            "Hasil Korelasi",
+            "Catatan",
+        ]
     )
     for rec in report.recordings:
         qr = rec.qr
         payload = qr.payload if qr and isinstance(qr.payload, dict) else {}
         recon.append(
             [
-                rec.recording_id, "; ".join(rec.unit_paths), rec.status.value,
+                rec.recording_id,
+                "; ".join(rec.unit_paths),
+                rec.status.value,
                 qr.token_id if qr else "",
                 "MQ1 encrypted" if qr and qr.status is ResultStatus.QR_DECRYPTED else "-",
                 qr.time_s if qr else None,
-                payload.get("c", ""), payload.get("d", ""), payload.get("l", ""),
-                payload.get("ss", ""), payload.get("t", ""),
-                "Perlu review" if rec.status is not ResultStatus.VERIFIED or rec.trust_level < 3
+                payload.get("c", ""),
+                payload.get("d", ""),
+                payload.get("l", ""),
+                payload.get("ss", ""),
+                payload.get("t", ""),
+                "Perlu review"
+                if rec.status is not ResultStatus.VERIFIED or rec.trust_level < 3
                 else "Terverifikasi",
                 " | ".join(qr.reasons) if qr else "QR belum diverifikasi",
             ]
