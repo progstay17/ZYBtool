@@ -61,7 +61,7 @@ flowchart LR
 |---|---|
 | FR-01 | Discovery rekursif folder recording, **termasuk folder berawalan titik** (`.live_*`). |
 | FR-02 | Parse seluruh JSON (`session.json`, `session_sync.json`, `t0.json`, `stereo/meta.json`), log, CSV IMU; tandai file wajib yang hilang. |
-| FR-03 | Scan beberapa frame awal setiap mkv untuk QR (kedua mata, di luar band IMU). |
+| FR-03 | Scan QR hanya dari 5 detik pertama video/segmen awal recording (5 FPS, crop kedua mata di luar band IMU); jangan mencoba segmen berikutnya untuk mencari QR pengganti. |
 | FR-04 | Dekripsi MQ1 dengan private key decoder, validasi skema payload, dan korelasi device ID ke session. Tidak ada signature/allow-list (tidak digunakan pada MQ1)/replay. |
 | FR-05 | Validasi payload QR terhadap kontrak profil `zyb-recording` (skema dimiliki ZYB Tool, ditempatkan di AITQR sebagai konfigurasi). |
 | FR-06 | Korelasi QR dengan `session.json` dan identitas kamera (device_id, waktu, session). |
