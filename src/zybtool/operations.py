@@ -275,46 +275,12 @@ def _excel_group_key(values: tuple[Any, ...]) -> str:
     )
 
 
-def _folder_size_bytes(source: Path, relative_paths: tuple[str, ...]) -> int:
-    """Sum regular files under recording folders using filesystem metadata only."""
-    total = 0
-    seen_files: set[str] = set()
-    for relative in sorted(set(relative_paths), key=str.casefold):
-        folder = source if relative == "." else source / Path(relative)
-        if folder.is_symlink():
-            raise ValueError(
-                f"Symlink recording tidak diizinkan untuk perhitungan ukuran: {relative}"
-            )
-        resolved = folder.resolve(strict=True)
-        if resolved != source and source not in resolved.parents:
-            raise ValueError(f"Path recording keluar dari folder sumber: {relative}")
-        if not resolved.is_dir():
-            continue
-        for current, dirs, files in os.walk(resolved, topdown=True, followlinks=False):
-            base = Path(current)
-            dirs[:] = sorted(
-                (name for name in dirs if not (base / name).is_symlink()),
-                key=str.casefold,
-            )
-            for name in sorted(files, key=str.casefold):
-                item = base / name
-                if item.is_symlink():
-                    continue
-                identity = os.path.normcase(os.path.abspath(item))
-                if identity in seen_files:
-                    continue
-                seen_files.add(identity)
-                total += item.stat(follow_symlinks=False).st_size
-    return total
-
-
 def export_excel(report: VerificationReport, path: Path | str) -> Path:
     """Export one row per QR-defined operational group; never infer or split shifts."""
     destination = Path(path).expanduser().resolve()
     if destination.suffix.lower() != ".xlsx":
         raise ValueError("File Excel harus berekstensi .xlsx")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    source = Path(report.source_root).expanduser().resolve(strict=True)
 
     old_manual_by_group: dict[str, tuple[Any, ...]] = {}
     old_manual_by_recording: dict[str, tuple[Any, ...]] = {}
@@ -352,6 +318,7 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
             del wb[name]
 
     groups: dict[tuple[str, str, str, str, str, str], dict[str, Any]] = {}
+    unit_sizes = {unit.relative_path: max(0, int(unit.total_size_bytes)) for unit in report.units}
     for rec in report.recordings:
         payload = rec.qr.payload if rec.qr and isinstance(rec.qr.payload, dict) else {}
         unit = next((u for u in report.units if u.relative_path in rec.unit_paths), None)
@@ -381,7 +348,7 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         group["recording_ids"].append(rec.recording_id)
         group["folders"].extend(rec.unit_paths)
         group["duration_s"] += float(rec.actual_duration_s or 0.0)
-        group["size_bytes"] += _folder_size_bytes(source, rec.unit_paths)
+        group["size_bytes"] += sum(unit_sizes.get(path, 0) for path in set(rec.unit_paths))
         group["segments"] += len(rec.segments)
         group["qr_statuses"].append(rec.qr.status.value if rec.qr else "NOT_SCANNED")
         group["trust_levels"].append(rec.trust_level)
