@@ -299,7 +299,9 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
             group_col = headers.index("Group Key") if "Group Key" in headers else -1
             id_col = headers.index("Recording ID") if "Recording ID" in headers else -1
             for row in sheet.iter_rows(min_row=2, values_only=True):
-                manual = tuple(row[col] if col >= 0 and col < len(row) else None for col in manual_cols)
+                manual = tuple(
+                    row[col] if col >= 0 and col < len(row) else None for col in manual_cols
+                )
                 if group_col >= 0 and group_col < len(row) and row[group_col]:
                     old_manual_by_group[str(row[group_col])] = manual
                 if id_col >= 0 and id_col < len(row) and row[id_col]:
