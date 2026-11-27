@@ -272,6 +272,7 @@ def test_verified_with_capture_warning_is_still_named_from_decrypted_qr(tmp_path
 
 def test_excel_groups_by_qr_ss_and_counts_each_recording_once(tmp_path: Path) -> None:
     from openpyxl import load_workbook
+
     from zybtool.models import Segment, VideoEvidence
     from zybtool.operations import export_excel
 
