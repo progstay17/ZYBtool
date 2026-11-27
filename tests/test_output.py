@@ -277,8 +277,16 @@ def test_excel_groups_by_qr_ss_and_counts_each_recording_once(tmp_path: Path) ->
     from zybtool.operations import export_excel
 
     source = tmp_path / "source"
-    (source / "recording_primary_demo").mkdir(parents=True)
-    (source / "recording_primary_second").mkdir()
+    first_root = source / "recording_primary_demo"
+    second_root = source / "recording_primary_second"
+    first_camera = first_root / "stereo"
+    second_camera = second_root / "stereo"
+    first_camera.mkdir(parents=True)
+    second_camera.mkdir(parents=True)
+    (first_camera / "video.mkv").write_bytes(b"a" * 100)
+    (first_root / "session.json").write_bytes(b"12345")
+    (second_camera / "video.mkv").write_bytes(b"b" * 200)
+    (second_root / "meta.json").write_bytes(b"12345678")
     payload = {"c": "Fadhil", "d": "ZY009", "l": "MM3208", "ss": "3", "t": "Bedroom"}
     base = _report(source, decrypted=True, payload=payload)
     original = base.recordings[0]
@@ -350,8 +358,8 @@ def test_excel_groups_by_qr_ss_and_counts_each_recording_once(tmp_path: Path) ->
     assert row["Shift"] == "3"
     assert row["Aktivitas"] == "Bedroom"
     assert row["Jumlah Sesi"] == 2
-    assert row["Durasi (jam)"] == 1.5
-    assert row["Total Data (GB)"] == 0.0000003
+    assert row["Durasi"].total_seconds() == 5_400
+    assert row["Total Data"] == 313 / 1_000_000_000
     assert "Qualified" not in " ".join(str(value) for value in headers)
     assert "Rejected" not in " ".join(str(value) for value in headers)
     workbook.close()
