@@ -152,6 +152,8 @@ def _video_with_token(tmp_path: Path, payload: dict[str, object] | None = None) 
 
 def test_qr_verification_does_not_scan_later_segments(tmp_path: Path, monkeypatch) -> None:
     video_path = tmp_path / "record" / "stereo" / "segment.mkv"
+    video_path.parent.mkdir(parents=True)
+    video_path.write_bytes(b"first segment")
     recording = _recording(video_path)
     second_video = VideoEvidence(
         relative_path="record/stereo/segment_000002.mkv",
