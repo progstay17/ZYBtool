@@ -73,7 +73,12 @@ def test_move_arrange_and_undo_restore_source(tmp_path: Path) -> None:
 
 def test_excel_export_has_zyw_sheets_and_preserves_manual_qc(tmp_path: Path) -> None:
     source = tmp_path / "source"
-    source.mkdir()
+    recording_folder = source / "recording_primary_demo"
+    camera_folder = recording_folder / "stereo"
+    camera_folder.mkdir(parents=True)
+    (recording_folder / "session.json").write_text("{}", encoding="utf-8")
+    (camera_folder / "capture.mkv").write_bytes(b"video-data")
+    (camera_folder / "imu.csv").write_text("t,x\\n1,2\\n", encoding="utf-8")
     report = _report(source)
     workbook_path = tmp_path / "ZYB_Rekap.xlsx"
     export_excel(report, workbook_path)
@@ -81,6 +86,17 @@ def test_excel_export_has_zyw_sheets_and_preserves_manual_qc(tmp_path: Path) -> 
     assert workbook.sheetnames == ["ZY White", "Cek File", "Scan Audit", "Rekonsiliasi"]
     sheet = workbook["ZY White"]
     headers = {cell.value: cell.column for cell in sheet[1]}
+    expected_size_bytes = sum(path.stat().st_size for path in recording_folder.rglob("*") if path.is_file())
+    duration_cell = sheet.cell(2, headers["Durasi"])
+    data_cell = sheet.cell(2, headers["Total Data"])
+    assert duration_cell.value == 12.5 / 86_400
+    assert duration_cell.number_format == "[h]:mm:ss"
+    assert data_cell.value == expected_size_bytes / 1_000_000_000
+    assert data_cell.number_format == '0.00 "GB"'
+    detail = workbook["Cek File"]
+    detail_headers = {cell.value: cell.column for cell in detail[1]}
+    assert detail.cell(2, detail_headers["Durasi"]).number_format == "[h]:mm:ss"
+    assert detail.cell(2, detail_headers["Total Data"]).number_format == '0.00 "GB"'
     sheet.cell(2, headers["QC"], "DONE")
     sheet.cell(2, headers["Supervisor"], "Supervisor A")
     workbook.save(workbook_path)
