@@ -122,6 +122,15 @@ def parse_unit_metadata(
                 standalone_stereo = True
                 break
 
+    total_size_bytes = 0
+    for file_path in files:
+        try:
+            total_size_bytes += file_path.stat(follow_symlinks=False).st_size
+        except OSError as exc:
+            warnings.append(
+                f"{file_path.name}: ukuran file tidak dapat dibaca ({type(exc).__name__})"
+            )
+
     missing: list[str] = []
     for name, candidate_path in (
         ("session.json", session_path),
@@ -188,6 +197,7 @@ def parse_unit_metadata(
         csv_timelines=csv_timelines,
         missing_files=tuple(sorted(set(missing))),
         warnings=tuple(warnings),
+        total_size_bytes=total_size_bytes,
     )
 
 
