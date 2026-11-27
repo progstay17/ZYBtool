@@ -77,7 +77,12 @@ def test_metaqr_mq1_is_encrypted_and_needs_only_decoder_private_key() -> None:
 
 
 def _write_synthetic_video(
-    path: Path, qr_image: np.ndarray, *, width: int = 400, height: int = 200
+    path: Path,
+    qr_image: np.ndarray,
+    *,
+    width: int = 400,
+    height: int = 200,
+    frame_count: int = 12,
 ) -> None:
     container = av.open(str(path), mode="w")
     stream = container.add_stream("mpeg4", rate=10)
@@ -87,7 +92,7 @@ def _write_synthetic_video(
     eye = cv2.resize(qr_image, (width // 2, height), interpolation=cv2.INTER_NEAREST)
     if eye.ndim == 2:
         eye = np.repeat(eye[:, :, None], 3, axis=2)
-    for _ in range(12):
+    for _ in range(frame_count):
         frame = np.zeros((height, width, 3), dtype=np.uint8)
         frame[:, : width // 2] = eye
         frame[:, width // 2 :] = eye
@@ -137,6 +142,24 @@ def _video_with_token(tmp_path: Path, payload: dict[str, object] | None = None) 
         encoding="utf-8",
     )
     return video_path, decoder.private.hex()
+
+
+def test_default_qr_scan_is_limited_to_first_five_seconds(tmp_path: Path) -> None:
+    video_path = tmp_path / "record" / "stereo" / "long-video.mkv"
+    meta_path = video_path.parent / "meta.json"
+    video_path.parent.mkdir(parents=True)
+    _write_synthetic_video(
+        video_path,
+        np.zeros((100, 100), dtype=np.uint8),
+        width=200,
+        height=100,
+        frame_count=100,
+    )
+    meta_path.write_text('{"usable":{"usable_start_s":0.0}}', encoding="utf-8")
+
+    scanned = scan_video_tokens(video_path, meta_path)
+
+    assert scanned.frames_scanned == 25
 
 
 def test_mq1_video_scan_decrypts_payload_without_allowlist(tmp_path: Path) -> None:
