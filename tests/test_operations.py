@@ -18,12 +18,23 @@ from zybtool.output import create_output_plan
 
 
 def _report(source: Path) -> VerificationReport:
+    recording_root = source / "recording_primary_demo"
+    total_size_bytes = (
+        sum(
+            path.stat(follow_symlinks=False).st_size
+            for path in recording_root.rglob("*")
+            if path.is_file()
+        )
+        if recording_root.is_dir()
+        else 0
+    )
     facts = SessionFacts(
         relative_path="recording_primary_demo",
         kind=UnitKind.FINAL,
         device_id="cam-01",
         capture_date="2026-11-25",
         mkv_paths=("recording_primary_demo/stereo/stereo_000001.mkv",),
+        total_size_bytes=total_size_bytes,
     )
     recording = RecordingResult(
         recording_id="a" * 32,
@@ -73,7 +84,12 @@ def test_move_arrange_and_undo_restore_source(tmp_path: Path) -> None:
 
 def test_excel_export_has_zyw_sheets_and_preserves_manual_qc(tmp_path: Path) -> None:
     source = tmp_path / "source"
-    source.mkdir()
+    recording_folder = source / "recording_primary_demo"
+    camera_folder = recording_folder / "stereo"
+    camera_folder.mkdir(parents=True)
+    (recording_folder / "session.json").write_text("{}", encoding="utf-8")
+    (camera_folder / "capture.mkv").write_bytes(b"video-data")
+    (camera_folder / "imu.csv").write_text("t,x\\n1,2\\n", encoding="utf-8")
     report = _report(source)
     workbook_path = tmp_path / "ZYB_Rekap.xlsx"
     export_excel(report, workbook_path)
@@ -81,6 +97,19 @@ def test_excel_export_has_zyw_sheets_and_preserves_manual_qc(tmp_path: Path) -> 
     assert workbook.sheetnames == ["ZY White", "Cek File", "Scan Audit", "Rekonsiliasi"]
     sheet = workbook["ZY White"]
     headers = {cell.value: cell.column for cell in sheet[1]}
+    expected_size_bytes = sum(
+        path.stat().st_size for path in recording_folder.rglob("*") if path.is_file()
+    )
+    duration_cell = sheet.cell(2, headers["Durasi"])
+    data_cell = sheet.cell(2, headers["Total Data"])
+    assert duration_cell.value.total_seconds() == 12.5
+    assert duration_cell.number_format == "[h]:mm:ss"
+    assert data_cell.value == expected_size_bytes / 1_000_000_000
+    assert data_cell.number_format == '0.00 "GB"'
+    detail = workbook["Cek File"]
+    detail_headers = {cell.value: cell.column for cell in detail[1]}
+    assert detail.cell(2, detail_headers["Durasi"]).number_format == "[h]:mm:ss"
+    assert detail.cell(2, detail_headers["Total Data"]).number_format == '0.00 "GB"'
     sheet.cell(2, headers["QC"], "DONE")
     sheet.cell(2, headers["Supervisor"], "Supervisor A")
     workbook.save(workbook_path)

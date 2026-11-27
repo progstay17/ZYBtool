@@ -61,7 +61,7 @@ flowchart LR
 |---|---|
 | FR-01 | Discovery rekursif folder recording, **termasuk folder berawalan titik** (`.live_*`). |
 | FR-02 | Parse seluruh JSON (`session.json`, `session_sync.json`, `t0.json`, `stereo/meta.json`), log, CSV IMU; tandai file wajib yang hilang. |
-| FR-03 | Scan beberapa frame awal setiap mkv untuk QR (kedua mata, di luar band IMU). |
+| FR-03 | Scan QR hanya dari 5 detik pertama video/segmen awal recording (5 FPS, crop kedua mata di luar band IMU); jangan mencoba segmen berikutnya untuk mencari QR pengganti. |
 | FR-04 | Dekripsi MQ1 dengan private key decoder, validasi skema payload, dan korelasi device ID ke session. Tidak ada signature/allow-list (tidak digunakan pada MQ1)/replay. |
 | FR-05 | Validasi payload QR terhadap kontrak profil `zyb-recording` (skema dimiliki ZYB Tool, ditempatkan di AITQR sebagai konfigurasi). |
 | FR-06 | Korelasi QR dengan `session.json` dan identitas kamera (device_id, waktu, session). |
@@ -71,7 +71,7 @@ flowchart LR
 | FR-10 | Arrange ke `ZYB_Output/<operasional>/recording_primary_*/…` dengan MOVE setelah preview dan konfirmasi; jurnal Undo wajib. |
 | FR-11 | Setelah QR MQ1 berhasil didekripsi dan device ID cocok, tambahkan metadata QR pada `session.json` di lokasi output setelah MOVE; pertahankan seluruh field native. |
 | FR-12 | Laporan per recording dan total (lihat §7) dalam JSON kanonik + tampilan yang bisa dibaca supervisor. |
-| FR-13 | Excel Export dengan sheet `ZY White`, `Cek File`, `Scan Audit`, `Rekonsiliasi`; `ZY White` dikelompokkan menurut device, tanggal, aktivitas, lokasi, `ss` QR, dan recorder. Shift wajib mengikuti payload `ss` (tanpa inferensi timestamp/pembagian durasi lintas shift); jumlah sesi, durasi, dan ukuran data dihitung sekali per recording. Tidak ada kolom Qualified/Rejected. Pertahankan kolom QC manual dan buat backup saat export ulang. Arrange MOVE tidak berubah. |
+| FR-13 | Excel Export dengan sheet `ZY White`, `Cek File`, `Scan Audit`, `Rekonsiliasi`; `ZY White` dikelompokkan menurut device, tanggal, aktivitas, lokasi, `ss` QR, dan recorder. Shift wajib mengikuti payload `ss` (tanpa inferensi timestamp/pembagian durasi lintas shift); jumlah sesi, durasi, dan ukuran data dihitung sekali per recording. Durasi ditampilkan sebagai `[h]:mm:ss` dan total data mencakup semua file pada folder unit recording (bukan hanya MKV), ditampilkan ringkas dalam GB dua desimal. Perhitungan ukuran memakai metadata filesystem tanpa membaca isi file. Tidak ada kolom Qualified/Rejected. Pertahankan kolom QC manual dan buat backup saat export ulang. Arrange MOVE tidak berubah. |
 | FR-14 | Preferences menyediakan JSON Variable Scanner, browse file JSON contoh, deteksi nested object/array, mapping field ke token folder, template editor, dan live preview. |
 | FR-15 | Mode No Shift menghilangkan token SESSION dari nama folder sepenuhnya; tidak boleh menghasilkan `S0` atau separator ganda. |
 

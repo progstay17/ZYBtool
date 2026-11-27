@@ -318,6 +318,7 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
             del wb[name]
 
     groups: dict[tuple[str, str, str, str, str, str], dict[str, Any]] = {}
+    unit_sizes = {unit.relative_path: max(0, int(unit.total_size_bytes)) for unit in report.units}
     for rec in report.recordings:
         payload = rec.qr.payload if rec.qr and isinstance(rec.qr.payload, dict) else {}
         unit = next((u for u in report.units if u.relative_path in rec.unit_paths), None)
@@ -347,9 +348,7 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         group["recording_ids"].append(rec.recording_id)
         group["folders"].extend(rec.unit_paths)
         group["duration_s"] += float(rec.actual_duration_s or 0.0)
-        group["size_bytes"] += sum(
-            max(0, int(segment.video.size_bytes)) for segment in rec.segments
-        )
+        group["size_bytes"] += sum(unit_sizes.get(path, 0) for path in set(rec.unit_paths))
         group["segments"] += len(rec.segments)
         group["qr_statuses"].append(rec.qr.status.value if rec.qr else "NOT_SCANNED")
         group["trust_levels"].append(rec.trust_level)
@@ -361,9 +360,9 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         "Lokasi",
         "Shift",
         "Recorder",
-        "Durasi (jam)",
+        "Durasi",
         "Jumlah Sesi",
-        "Total Data (GB)",
+        "Total Data",
         "Jumlah Segment",
         "Status QR",
         "Trust Level",
@@ -391,7 +390,7 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
             )
         row = [
             *values,
-            group["duration_s"] / 3600,
+            group["duration_s"] / 86_400,
             len(group["recording_ids"]),
             group["size_bytes"] / 1_000_000_000,
             group["segments"],
@@ -414,8 +413,8 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
             "Trust",
             "QR Status",
             "Segment",
-            "Durasi (s)",
-            "Ukuran (bytes)",
+            "Durasi",
+            "Total Data",
             "Masalah / Alasan",
         ]
     )
@@ -428,8 +427,9 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
                 rec.trust_level,
                 rec.qr.status.value if rec.qr else "NOT_SCANNED",
                 len(rec.segments),
-                rec.actual_duration_s,
-                sum(max(0, int(segment.video.size_bytes)) for segment in rec.segments),
+                None if rec.actual_duration_s is None else rec.actual_duration_s / 86_400,
+                sum(unit_sizes.get(unit_path, 0) for unit_path in set(rec.unit_paths))
+                / 1_000_000_000,
                 " | ".join(rec.reasons),
             ]
         )
@@ -509,6 +509,15 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         )
 
     for sheet in wb.worksheets:
+        if sheet.title in {"ZY White", "Cek File"}:
+            columns = {cell.value: cell.column for cell in sheet[1]}
+            duration_column = columns["Durasi"]
+            data_column = columns["Total Data"]
+            for row_index in range(2, sheet.max_row + 1):
+                duration_cell = sheet.cell(row_index, duration_column)
+                if duration_cell.value is not None:
+                    duration_cell.number_format = "[h]:mm:ss"
+                sheet.cell(row_index, data_column).number_format = '0.00 "GB"'
         sheet.freeze_panes = "A2"
         sheet.auto_filter.ref = sheet.dimensions
         for cell in sheet[1]:

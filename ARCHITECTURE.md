@@ -49,7 +49,7 @@ Paket `zybtool`; semua modul inti **fungsi murni atas dataclass** (I/O dipisah) 
 | Modul | Tanggung jawab | Bergantung pada |
 |---|---|---|
 | `discovery` | Cari kandidat folder rekursif (termasuk berawalan titik), klasifikasi `FINAL` / `LIVE` / `PARTIAL`; tidak mengikuti symlink. | — |
-| `meta` | Parse JSON/log/CSV menjadi `SessionFacts`; toleran, mencatat field/file hilang. | — |
+| `meta` | Parse JSON/log/CSV menjadi `SessionFacts`; toleran, mencatat field/file hilang, dan menyimpan total ukuran seluruh file unit dari `stat` (`total_size_bytes`) tanpa membaca isi file. | — |
 | `videoscan` | Demux timeline (PyAV), keyframe, ukuran; rentang CSV; pengambil sampel frame untuk QR (crop mata). | `meta` |
 | `qrverify` | Pembungkus Metaqr: deteksi token MQ1, dekripsi dengan private key X25519, validasi skema payload dan kecocokan device ID. Tidak ada signature/allow-list/replay. | Metaqr |
 | `correlate` | Cek QR ↔ session/kamera/waktu. | `meta`, `qrverify` |
@@ -58,7 +58,7 @@ Paket `zybtool`; semua modul inti **fungsi murni atas dataclass** (I/O dipisah) 
 | `status` | Fungsi keputusan: bukti → status + alasan + level. | semua bukti |
 | `report` | JSON kanonik; render HTML/CSV. | `status` |
 | `naming` | Scanner JSON read-only, nested field mapping, template render, No Shift dan preview. | `session.json`, payload QR terverifikasi |
-| `output` | Plan lokal dan naming; `naming` merender template dari field JSON native dan payload QR terverifikasi; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel. | `report`, `integrity`, `naming` |
+| `output` | Plan lokal dan naming; `naming` merender template dari field JSON native dan payload QR terverifikasi; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel yang memakai total ukuran tersimpan dari inventory (tetap bisa diekspor setelah MOVE). | `report`, `integrity`, `naming` |
 | `cli` | Orkestrasi dan antarmuka. | semua |
 
 ## 4. Aliran data
@@ -112,7 +112,7 @@ Contoh `Finding`: `{"code":"INCOMPLETE","subject":".live_20250210_174436","sever
 
 **Sumber QR:** AITQR (profil `zyb-recording`). Kontrak: skema payload dimiliki ZYB Tool; vektor uji bersama diuji di kedua repo.
 
-**Pemindaian:** per mkv, mulai dari `usable_start_s` (lewati frame beku), jendela default 30 s, 5 fps, **crop mata dari `meta.json`** (tanpa band IMU, tanpa pengecilan ke 1600 px seperti `scan_video` Metaqr) [A: ukuran/jendela dikalibrasi dengan kamera nyata]. Segment berikutnya dipindai dengan cara sama; tidak ada QR ≠ recording baru.
+**Pemindaian:** hanya video/segmen awal recording, mulai dari `usable_start_s` (lewati frame beku), jendela default 5 s, 5 fps (maksimal 25 frame sampel), **crop mata dari `meta.json`** (tanpa band IMU, tanpa pengecilan ke 1600 px seperti `scan_video` Metaqr) [A: jendela 5 detik perlu dikonfirmasi pada kamera nyata]. Segmen berikutnya tidak dipindai untuk mencari QR pengganti; tidak ada QR → `QR_MISSING`. Pembatasan ini mengurangi jumlah maksimum frame QR yang diuji 83,3% dibanding satu jendela 30 detik, dan mencegah pengulangan scan QR di setiap segmen. Demux/timeline integrity scan atas seluruh MKV tetap berjalan.
 
 **Dekripsi MQ1:** Metaqr membuka token dengan private key X25519 decoder. Token yang tidak dapat didekripsi menghasilkan `QR_DECRYPT_FAILED`; token berhasil didekripsi dan lolos skema/device ID menghasilkan `QR_DECRYPTED`. Tidak ada signature, allow-list, atau replay detection.
 

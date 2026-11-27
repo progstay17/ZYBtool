@@ -71,6 +71,7 @@ class SessionFacts:
     csv_timelines: tuple[CsvTimeline, ...] = ()
     missing_files: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
+    total_size_bytes: int = 0
 
 
 @dataclass(frozen=True, slots=True)
