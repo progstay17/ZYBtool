@@ -49,7 +49,7 @@ Paket `zybtool`; semua modul inti **fungsi murni atas dataclass** (I/O dipisah) 
 | Modul | Tanggung jawab | Bergantung pada |
 |---|---|---|
 | `discovery` | Cari kandidat folder rekursif (termasuk berawalan titik), klasifikasi `FINAL` / `LIVE` / `PARTIAL`; tidak mengikuti symlink. | — |
-| `meta` | Parse JSON/log/CSV menjadi `SessionFacts`; toleran, mencatat field/file hilang. | — |
+| `meta` | Parse JSON/log/CSV menjadi `SessionFacts`; toleran, mencatat field/file hilang, dan menyimpan total ukuran seluruh file unit dari `stat` (`total_size_bytes`) tanpa membaca isi file. | — |
 | `videoscan` | Demux timeline (PyAV), keyframe, ukuran; rentang CSV; pengambil sampel frame untuk QR (crop mata). | `meta` |
 | `qrverify` | Pembungkus Metaqr: deteksi token MQ1, dekripsi dengan private key X25519, validasi skema payload dan kecocokan device ID. Tidak ada signature/allow-list/replay. | Metaqr |
 | `correlate` | Cek QR ↔ session/kamera/waktu. | `meta`, `qrverify` |
@@ -58,7 +58,7 @@ Paket `zybtool`; semua modul inti **fungsi murni atas dataclass** (I/O dipisah) 
 | `status` | Fungsi keputusan: bukti → status + alasan + level. | semua bukti |
 | `report` | JSON kanonik; render HTML/CSV. | `status` |
 | `naming` | Scanner JSON read-only, nested field mapping, template render, No Shift dan preview. | `session.json`, payload QR terverifikasi |
-| `output` | Plan lokal dan naming; `naming` merender template dari field JSON native dan payload QR terverifikasi; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel. | `report`, `integrity`, `naming` |
+| `output` | Plan lokal dan naming; `naming` merender template dari field JSON native dan payload QR terverifikasi; `operations` menjalankan MOVE dengan konfirmasi, hash, journal/Undo, dan Excel yang memakai total ukuran tersimpan dari inventory (tetap bisa diekspor setelah MOVE). | `report`, `integrity`, `naming` |
 | `cli` | Orkestrasi dan antarmuka. | semua |
 
 ## 4. Aliran data
