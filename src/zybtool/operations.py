@@ -282,7 +282,9 @@ def _folder_size_bytes(source: Path, relative_paths: tuple[str, ...]) -> int:
     for relative in sorted(set(relative_paths), key=str.casefold):
         folder = source if relative == "." else source / Path(relative)
         if folder.is_symlink():
-            raise ValueError(f"Symlink recording tidak diizinkan untuk perhitungan ukuran: {relative}")
+            raise ValueError(
+                f"Symlink recording tidak diizinkan untuk perhitungan ukuran: {relative}"
+            )
         resolved = folder.resolve(strict=True)
         if resolved != source and source not in resolved.parents:
             raise ValueError(f"Path recording keluar dari folder sumber: {relative}")
