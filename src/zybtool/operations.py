@@ -317,7 +317,7 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         if name in wb.sheetnames:
             del wb[name]
 
-    groups: dict[tuple[str, ...], dict[str, Any]] = {}
+    groups: dict[tuple[str, str, str, str, str, str], dict[str, Any]] = {}
     for rec in report.recordings:
         payload = rec.qr.payload if rec.qr and isinstance(rec.qr.payload, dict) else {}
         unit = next((u for u in report.units if u.relative_path in rec.unit_paths), None)
@@ -378,7 +378,7 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         groups.items(), key=lambda item: tuple(str(v).casefold() for v in item[0])
     ):
         key = _excel_group_key(values)
-        manual = old_manual_by_group.get(key)
+        manual: tuple[Any, ...] | None = old_manual_by_group.get(key)
         if manual is None:
             legacy = [
                 old_manual_by_recording.get(recording_id) for recording_id in group["recording_ids"]
