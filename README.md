@@ -59,7 +59,7 @@ Alternatif langsung:
 
     .\.venv\Scripts\zybtool.exe scan "D:\Recording" --output "D:\ZYB_Reports"
 
-Scan selalu mencari QR MQ1 pada dua crop mata kamera dari meta.json, mulai dari usable_start_s, default 5 fps selama 30 detik. Jika private key belum tersedia, QR tetap terdeteksi tetapi belum dapat didekripsi. Jika private key tersedia, ZYBTool mendekripsi payload, memvalidasi envelope profil, dan membandingkan di dengan session.json.device_id bila field di tersedia. Ketiadaan di tidak menurunkan status. Recording yang lolos pemeriksaan menjadi VERIFIED. Capture stereo standalone yang formatnya sah tidak diwajibkan memiliki t0.json. Jika gate sinkronisasi standalone gagal tetapi QR dan video valid, hasilnya VERIFIED_WITH_WARNING dan tetap dapat dinamai dengan peringatan tercatat. Scan tidak memodifikasi recording; MOVE hanya terjadi melalui Arrange yang dikonfirmasi.
+Scan mencari QR MQ1 pada dua crop mata kamera dari meta.json, mulai dari usable_start_s, default 5 fps selama maksimal 5 detik (maksimal 25 frame, dan berhenti lebih awal setelah 3 vote untuk token yang sama). Scanner melakukan seek ke keyframe sebelum titik awal QR dan memakai crop metadata yang sudah dibaca sekali. Jika private key belum tersedia, QR tetap terdeteksi tetapi belum dapat didekripsi. Jika private key tersedia, ZYBTool mendekripsi payload, memvalidasi envelope profil, dan membandingkan di dengan session.json.device_id bila field di tersedia. Ketiadaan di tidak menurunkan status. Recording yang lolos pemeriksaan menjadi VERIFIED. Capture stereo standalone yang formatnya sah tidak diwajibkan memiliki t0.json. Jika gate sinkronisasi standalone gagal tetapi QR dan video valid, hasilnya VERIFIED_WITH_WARNING dan tetap dapat dinamai dengan peringatan tercatat. Scan tidak memodifikasi recording; MOVE hanya terjadi melalui Arrange yang dikonfirmasi.
 
 ## Pengujian
 
@@ -118,3 +118,12 @@ Arrange aman dijalankan ulang pada session.json yang sudah memiliki zybtool.qr_m
 - Folder sebelum QR pertama tetap tidak teridentifikasi dan tidak boleh meminjam QR dari folder sesudahnya.
 - Pengelompokan tidak lagi memakai jeda waktu atau durasi capture.
 - Semua folder anggota kelompok dipindahkan bersama dalam satu folder Arrange dan menerima metadata QR kelompok yang sama.
+
+Pemeriksaan timeline video tetap membaca seluruh paket MKV untuk memeriksa urutan PTS dan durasi. Pembatasan 5 detik hanya berlaku untuk pencarian QR; batas ini sengaja tidak mengurangi pemeriksaan integritas seluruh video.
+
+## v0.2.19 — GUI version dan QR scan lebih efisien
+
+- Menyamakan versi package yang dibaca GUI dengan versi release (`0.2.19`).
+- QR scanner melakukan seek ke keyframe sebelum `usable_start_s`, sehingga tidak perlu decode semua frame dari awal video ketika QR window dimulai lebih akhir.
+- Crop metadata dihitung sekali per scan, bukan membaca dan parsing ulang `meta.json` pada setiap frame sampel.
+- Jendela QR tetap maksimal 5 detik pada 5 FPS; pemeriksaan paket MKV penuh tetap dipertahankan.

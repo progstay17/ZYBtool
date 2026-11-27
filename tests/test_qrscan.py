@@ -11,6 +11,8 @@ from metaqr.qr import render
 from zybtool.models import RecordingResult, ResultStatus, Segment, VideoEvidence
 from zybtool.qrscan import (
     QRScanResult,
+    _crop_rectangles,
+    _seek_to_start,
     scan_video_tokens,
     validate_zyb_payload,
     verify_recording_qr,
@@ -183,6 +185,37 @@ def test_qr_verification_does_not_scan_later_segments(tmp_path: Path, monkeypatc
 
     assert result.status is ResultStatus.QR_MISSING
     assert calls == [str(video_path)]
+
+
+def test_qr_seek_uses_stream_time_base() -> None:
+    class FakeStream:
+        time_base = 0.001
+
+    class FakeContainer:
+        call: tuple[int, object, bool, bool] | None = None
+
+        def seek(self, offset: int, *, stream: object, backward: bool, any_frame: bool) -> None:
+            self.call = (offset, stream, backward, any_frame)
+
+    container = FakeContainer()
+    stream = FakeStream()
+
+    assert _seek_to_start(container, stream, 5.0) is True
+    assert container.call == (5000, stream, True, False)
+
+
+def test_qr_crop_rectangles_use_preloaded_metadata() -> None:
+    meta = {
+        "format": {
+            "left_crop": [0, 0, 50, 100],
+            "right_crop": [50, 0, 50, 100],
+        }
+    }
+    rectangles = _crop_rectangles(meta, 100, 100)
+    assert rectangles == (
+        ("left-eye", (0, 0, 50, 100)),
+        ("right-eye", (50, 0, 100, 100)),
+    )
 
 
 def test_default_qr_scan_is_limited_to_first_five_seconds(tmp_path: Path) -> None:

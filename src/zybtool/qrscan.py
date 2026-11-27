@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import re
@@ -25,15 +26,9 @@ class QRScanResult:
     first_seen_s: dict[str, float]
 
 
-def _read_crop_rectangles(
-    meta_path: Path, frame_width: int, frame_height: int
+def _crop_rectangles(
+    meta: dict[str, Any], frame_width: int, frame_height: int
 ) -> tuple[tuple[str, tuple[int, int, int, int]], ...]:
-    try:
-        meta = json.loads(meta_path.read_text(encoding="utf-8-sig"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return ()
-    if not isinstance(meta, dict):
-        return ()
     fmt = meta.get("format")
     if not isinstance(fmt, dict):
         return ()
@@ -51,6 +46,18 @@ def _read_crop_rectangles(
                 if x < x2 and y < y2:
                     crops.append((label, (x, y, x2, y2)))
     return tuple(crops) or (("full-frame-fallback", (0, 0, frame_width, frame_height)),)
+
+
+def _seek_to_start(container: Any, stream: Any, start_s: float) -> bool:
+    """Seek to the keyframe at/before the QR window using the stream time base."""
+    time_base = stream.time_base
+    if start_s <= 0 or not time_base:
+        return False
+    offset = int(start_s / float(time_base))
+    if offset <= 0:
+        return False
+    container.seek(offset, stream=stream, backward=True, any_frame=False)
+    return True
 
 
 def scan_video_tokens(
@@ -91,6 +98,11 @@ def scan_video_tokens(
             stream = next((item for item in container.streams if item.type == "video"), None)
             if stream is None:
                 raise RuntimeError("Video stream tidak ditemukan")
+            if start > 0:
+                # Some containers cannot seek; decoding from the beginning remains correct.
+                with contextlib.suppress(OSError, av.error.FFmpegError, ValueError, OverflowError):
+                    _seek_to_start(container, stream, start)
+            rectangles: tuple[tuple[str, tuple[int, int, int, int]], ...] | None = None
             for frame in container.decode(stream):
                 if not isinstance(frame, av.VideoFrame):
                     continue
@@ -104,9 +116,9 @@ def scan_video_tokens(
                 if timestamp + 1e-6 < next_sample:
                     continue
                 next_sample += 1.0 / sample_fps
+                if rectangles is None:
+                    rectangles = _crop_rectangles(meta, frame.width, frame.height)
                 image = frame.to_ndarray(format="bgr24")
-                height, width = image.shape[:2]
-                rectangles = _read_crop_rectangles(sidecar, width, height)
                 found: set[str] = set()
                 for _label, (x1, y1, x2, y2) in rectangles:
                     token = find_token(image[y1:y2, x1:x2])
