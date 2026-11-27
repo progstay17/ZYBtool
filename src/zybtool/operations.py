@@ -270,7 +270,9 @@ def undo_move(output_folder: Path | str) -> int:
 
 def _excel_group_key(values: tuple[Any, ...]) -> str:
     """Stable identity for one recorder/date/activity/location/QR-shift group."""
-    return json.dumps([str(value or "") for value in values], ensure_ascii=False, separators=(",", ":"))
+    return json.dumps(
+        [str(value or "") for value in values], ensure_ascii=False, separators=(",", ":")
+    )
 
 
 def export_excel(report: VerificationReport, path: Path | str) -> Path:
