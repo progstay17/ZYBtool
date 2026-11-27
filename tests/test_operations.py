@@ -91,7 +91,7 @@ def test_excel_export_has_zyw_sheets_and_preserves_manual_qc(tmp_path: Path) -> 
     )
     duration_cell = sheet.cell(2, headers["Durasi"])
     data_cell = sheet.cell(2, headers["Total Data"])
-    assert duration_cell.value == 12.5 / 86_400
+    assert duration_cell.value.total_seconds() == 12.5
     assert duration_cell.number_format == "[h]:mm:ss"
     assert data_cell.value == expected_size_bytes / 1_000_000_000
     assert data_cell.number_format == '0.00 "GB"'
