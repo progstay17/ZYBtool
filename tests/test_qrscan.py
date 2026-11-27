@@ -194,9 +194,7 @@ def test_qr_seek_uses_stream_time_base() -> None:
     class FakeContainer:
         call: tuple[int, object, bool, bool] | None = None
 
-        def seek(
-            self, offset: int, *, stream: object, backward: bool, any_frame: bool
-        ) -> None:
+        def seek(self, offset: int, *, stream: object, backward: bool, any_frame: bool) -> None:
             self.call = (offset, stream, backward, any_frame)
 
     container = FakeContainer()
