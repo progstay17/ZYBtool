@@ -144,6 +144,41 @@ def _video_with_token(tmp_path: Path, payload: dict[str, object] | None = None) 
     return video_path, decoder.private.hex()
 
 
+def test_qr_verification_does_not_scan_later_segments(tmp_path: Path, monkeypatch) -> None:
+    video_path = tmp_path / "record" / "stereo" / "segment.mkv"
+    recording = _recording(video_path)
+    second_video = VideoEvidence(
+        relative_path="record/stereo/segment_000002.mkv",
+        size_bytes=100,
+        packet_count=10,
+        pts_first_s=0.0,
+        pts_last_s=0.9,
+        duration_s=1.0,
+        frame_rate=10.0,
+        pts_monotonic=True,
+        keyframes=1,
+    )
+    recording = RecordingResult(
+        **{
+            **recording.__dict__,
+            "segments": (*recording.segments, Segment("record", "stereo", second_video)),
+        }
+    )
+    calls: list[str] = []
+
+    def fake_scan(path: Path, meta_path: Path) -> QRScanResult:
+        calls.append(str(path))
+        return QRScanResult((), 0, {})
+
+    import zybtool.qrscan as qrscan_module
+
+    monkeypatch.setattr(qrscan_module, "scan_video_tokens", fake_scan)
+    result = verify_recording_qr(recording, tmp_path, private_key=None)
+
+    assert result.status is ResultStatus.QR_MISSING
+    assert calls == [str(video_path)]
+
+
 def test_default_qr_scan_is_limited_to_first_five_seconds(tmp_path: Path) -> None:
     video_path = tmp_path / "record" / "stereo" / "long-video.mkv"
     meta_path = video_path.parent / "meta.json"
