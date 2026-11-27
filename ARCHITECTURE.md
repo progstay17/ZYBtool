@@ -112,7 +112,7 @@ Contoh `Finding`: `{"code":"INCOMPLETE","subject":".live_20250210_174436","sever
 
 **Sumber QR:** AITQR (profil `zyb-recording`). Kontrak: skema payload dimiliki ZYB Tool; vektor uji bersama diuji di kedua repo.
 
-**Pemindaian:** per mkv, mulai dari `usable_start_s` (lewati frame beku), jendela default 30 s, 5 fps, **crop mata dari `meta.json`** (tanpa band IMU, tanpa pengecilan ke 1600 px seperti `scan_video` Metaqr) [A: ukuran/jendela dikalibrasi dengan kamera nyata]. Segment berikutnya dipindai dengan cara sama; tidak ada QR ≠ recording baru.
+**Pemindaian:** per mkv, mulai dari `usable_start_s` (lewati frame beku), jendela default 5 s, 5 fps (maksimal 25 frame sampel per mkv), **crop mata dari `meta.json`** (tanpa band IMU, tanpa pengecilan ke 1600 px seperti `scan_video` Metaqr) [A: jendela 5 detik perlu dikonfirmasi pada kamera nyata]. Segment berikutnya hanya dipindai bila QR valid belum ditemukan; tidak ada QR ≠ recording baru. Pembatasan ini mengurangi jumlah maksimum frame QR yang diuji 83,3% dibanding jendela 30 detik, tetapi tidak mengurangi demux/timeline integrity scan atas seluruh MKV.
 
 **Dekripsi MQ1:** Metaqr membuka token dengan private key X25519 decoder. Token yang tidak dapat didekripsi menghasilkan `QR_DECRYPT_FAILED`; token berhasil didekripsi dan lolos skema/device ID menghasilkan `QR_DECRYPTED`. Tidak ada signature, allow-list, atau replay detection.
 
