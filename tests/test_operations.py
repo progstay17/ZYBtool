@@ -86,7 +86,9 @@ def test_excel_export_has_zyw_sheets_and_preserves_manual_qc(tmp_path: Path) -> 
     assert workbook.sheetnames == ["ZY White", "Cek File", "Scan Audit", "Rekonsiliasi"]
     sheet = workbook["ZY White"]
     headers = {cell.value: cell.column for cell in sheet[1]}
-    expected_size_bytes = sum(path.stat().st_size for path in recording_folder.rglob("*") if path.is_file())
+    expected_size_bytes = sum(
+        path.stat().st_size for path in recording_folder.rglob("*") if path.is_file()
+    )
     duration_cell = sheet.cell(2, headers["Durasi"])
     data_cell = sheet.cell(2, headers["Total Data"])
     assert duration_cell.value == 12.5 / 86_400
