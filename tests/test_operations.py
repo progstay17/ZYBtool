@@ -80,13 +80,16 @@ def test_excel_export_has_zyw_sheets_and_preserves_manual_qc(tmp_path: Path) -> 
     workbook = load_workbook(workbook_path)
     assert workbook.sheetnames == ["ZY White", "Cek File", "Scan Audit", "Rekonsiliasi"]
     sheet = workbook["ZY White"]
-    sheet.cell(2, 12, "DONE")
-    sheet.cell(2, 17, "Supervisor A")
+    headers = {cell.value: cell.column for cell in sheet[1]}
+    sheet.cell(2, headers["QC"], "DONE")
+    sheet.cell(2, headers["Supervisor"], "Supervisor A")
     workbook.save(workbook_path)
     export_excel(report, workbook_path)
     workbook = load_workbook(workbook_path)
-    assert workbook["ZY White"].cell(2, 12).value == "DONE"
-    assert workbook["ZY White"].cell(2, 17).value == "Supervisor A"
+    sheet = workbook["ZY White"]
+    headers = {cell.value: cell.column for cell in sheet[1]}
+    assert sheet.cell(2, headers["QC"]).value == "DONE"
+    assert sheet.cell(2, headers["Supervisor"]).value == "Supervisor A"
     assert list(tmp_path.glob("ZYB_Rekap.backup-*.xlsx"))
     workbook.close()
 
