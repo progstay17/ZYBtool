@@ -458,7 +458,9 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         wb.save(temp)
         os.replace(temp, destination)
     except PermissionError:
-        raise PermissionError(f"File Excel sedang dibuka. Tutup dulu lalu export ulang:\n{destination}") from None
+        raise PermissionError(
+            f"File Excel sedang dibuka. Tutup dulu lalu export ulang:\n{destination}"
+        ) from None
     finally:
         if temp.exists():
             temp.unlink()
