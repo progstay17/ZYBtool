@@ -318,9 +318,7 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
             del wb[name]
 
     groups: dict[tuple[str, str, str, str, str, str], dict[str, Any]] = {}
-    unit_sizes = {
-        unit.relative_path: max(0, int(unit.total_size_bytes)) for unit in report.units
-    }
+    unit_sizes = {unit.relative_path: max(0, int(unit.total_size_bytes)) for unit in report.units}
     for rec in report.recordings:
         payload = rec.qr.payload if rec.qr and isinstance(rec.qr.payload, dict) else {}
         unit = next((u for u in report.units if u.relative_path in rec.unit_paths), None)
@@ -350,9 +348,7 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         group["recording_ids"].append(rec.recording_id)
         group["folders"].extend(rec.unit_paths)
         group["duration_s"] += float(rec.actual_duration_s or 0.0)
-        group["size_bytes"] += sum(
-            unit_sizes.get(path, 0) for path in set(rec.unit_paths)
-        )
+        group["size_bytes"] += sum(unit_sizes.get(path, 0) for path in set(rec.unit_paths))
         group["segments"] += len(rec.segments)
         group["qr_statuses"].append(rec.qr.status.value if rec.qr else "NOT_SCANNED")
         group["trust_levels"].append(rec.trust_level)
