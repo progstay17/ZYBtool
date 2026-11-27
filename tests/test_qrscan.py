@@ -9,7 +9,12 @@ import numpy as np
 from metaqr.qr import render
 
 from zybtool.models import RecordingResult, ResultStatus, Segment, VideoEvidence
-from zybtool.qrscan import QRScanResult, scan_video_tokens, validate_zyb_payload, verify_recording_qr
+from zybtool.qrscan import (
+    QRScanResult,
+    scan_video_tokens,
+    validate_zyb_payload,
+    verify_recording_qr,
+)
 
 
 def _valid_payload(device_id: str = "fixture-device-001") -> dict[str, object]:
