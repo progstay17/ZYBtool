@@ -268,13 +268,20 @@ def undo_move(output_folder: Path | str) -> int:
     return len(completed)
 
 
+def _excel_group_key(values: tuple[Any, ...]) -> str:
+    """Stable identity for one recorder/date/activity/location/QR-shift group."""
+    return json.dumps([str(value or "") for value in values], ensure_ascii=False, separators=(",", ":"))
+
+
 def export_excel(report: VerificationReport, path: Path | str) -> Path:
-    """Create/update a four-sheet operational workbook, preserving manual QC fields."""
+    """Export one row per QR-defined operational group; never infer or split shifts."""
     destination = Path(path).expanduser().resolve()
     if destination.suffix.lower() != ".xlsx":
         raise ValueError("File Excel harus berekstensi .xlsx")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    old_manual: dict[str, tuple[Any, ...]] = {}
+
+    old_manual_by_group: dict[str, tuple[Any, ...]] = {}
+    old_manual_by_recording: dict[str, tuple[Any, ...]] = {}
     if destination.exists():
         backup = destination.with_name(
             f"{destination.stem}.backup-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}{destination.suffix}"
@@ -284,72 +291,98 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
         if "ZY White" in existing.sheetnames:
             sheet = existing["ZY White"]
             headers = [cell.value for cell in sheet[1]]
-            key_col = headers.index("Recording ID") + 1 if "Recording ID" in headers else 0
             manual_cols = [
-                headers.index(name) + 1 if name in headers else 0 for name in MANUAL_HEADERS
+                headers.index(name) if name in headers else -1 for name in MANUAL_HEADERS
             ]
-            if key_col:
-                for row in sheet.iter_rows(min_row=2, values_only=True):
-                    key = row[key_col - 1]
-                    if key:
-                        old_manual[str(key)] = tuple(
-                            row[col - 1] if col else None for col in manual_cols
-                        )
+            group_col = headers.index("Group Key") if "Group Key" in headers else -1
+            id_col = headers.index("Recording ID") if "Recording ID" in headers else -1
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                manual = tuple(row[col] if col >= 0 and col < len(row) else None for col in manual_cols)
+                if group_col >= 0 and group_col < len(row) and row[group_col]:
+                    old_manual_by_group[str(row[group_col])] = manual
+                if id_col >= 0 and id_col < len(row) and row[id_col]:
+                    for recording_id in str(row[id_col]).split("; "):
+                        old_manual_by_recording[recording_id] = manual
         existing.close()
         wb = load_workbook(destination)
     else:
         wb = Workbook()
         wb.remove(wb.active)
+
     for name in ("ZY White", "Cek File", "Scan Audit", "Rekonsiliasi"):
         if name in wb.sheetnames:
             del wb[name]
-    headers = [
-        "Recording ID",
-        "Tanggal",
-        "Recorder",
-        "Device ID",
-        "Shift",
-        "Aktivitas",
-        "Status QR",
-        "Trust Level",
-        "Segment",
-        "Durasi (s)",
-        "Source Folder",
-        *MANUAL_HEADERS,
-    ]
-    ws = wb.create_sheet("ZY White")
-    ws.append(headers)
+
+    groups: dict[tuple[str, ...], dict[str, Any]] = {}
     for rec in report.recordings:
         payload = rec.qr.payload if rec.qr and isinstance(rec.qr.payload, dict) else {}
         unit = next((u for u in report.units if u.relative_path in rec.unit_paths), None)
-        date = unit.capture_date if unit else ""
-        row = [
-            rec.recording_id,
+        date = str((unit.capture_date if unit else "") or "")
+        # QR payload is the source of truth for these fields. In particular, ss
+        # is copied verbatim; recording timestamps never reassign a shift.
+        values = (
+            str(payload.get("d") or rec.device_id or ""),
             date,
-            payload.get("r", ""),
-            rec.device_id or "",
-            payload.get("sh", ""),
-            payload.get("a", ""),
-            rec.qr.status.value if rec.qr else "NOT_SCANNED",
-            rec.trust_level,
-            len(rec.segments),
-            rec.actual_duration_s,
-            "; ".join(rec.unit_paths),
+            str(payload.get("t") or ""),
+            str(payload.get("l") or ""),
+            str(payload.get("ss") or ""),
+            str(payload.get("c") or ""),
+        )
+        group = groups.setdefault(
+            values,
+            {
+                "recording_ids": [],
+                "folders": [],
+                "duration_s": 0.0,
+                "size_bytes": 0,
+                "segments": 0,
+                "qr_statuses": [],
+                "trust_levels": [],
+            },
+        )
+        group["recording_ids"].append(rec.recording_id)
+        group["folders"].extend(rec.unit_paths)
+        group["duration_s"] += float(rec.actual_duration_s or 0.0)
+        group["size_bytes"] += sum(max(0, int(segment.video.size_bytes)) for segment in rec.segments)
+        group["segments"] += len(rec.segments)
+        group["qr_statuses"].append(rec.qr.status.value if rec.qr else "NOT_SCANNED")
+        group["trust_levels"].append(rec.trust_level)
+
+    headers = [
+        "Device ID", "Tanggal", "Aktivitas", "Lokasi", "Shift", "Recorder",
+        "Durasi (jam)", "Jumlah Sesi", "Total Data (GB)", "Jumlah Segment",
+        "Status QR", "Trust Level", "Source Folder", "Recording ID",
+        *MANUAL_HEADERS, "Group Key",
+    ]
+    ws = wb.create_sheet("ZY White")
+    ws.append(headers)
+    for values, group in sorted(groups.items(), key=lambda item: tuple(str(v).casefold() for v in item[0])):
+        key = _excel_group_key(values)
+        manual = old_manual_by_group.get(key)
+        if manual is None:
+            legacy = [old_manual_by_recording.get(recording_id) for recording_id in group["recording_ids"]]
+            present = [value for value in legacy if value is not None]
+            manual = present[0] if present and all(value == present[0] for value in present) else (None,) * len(MANUAL_HEADERS)
+        row = [
+            *values,
+            group["duration_s"] / 3600,
+            len(group["recording_ids"]),
+            group["size_bytes"] / 1_000_000_000,
+            group["segments"],
+            "; ".join(sorted(set(group["qr_statuses"]))),
+            min(group["trust_levels"]) if group["trust_levels"] else 0,
+            "; ".join(sorted(set(group["folders"]))),
+            "; ".join(group["recording_ids"]),
+            *manual,
+            key,
         ]
-        row.extend(old_manual.get(rec.recording_id, (None,) * len(MANUAL_HEADERS)))
         ws.append(row)
+    ws.column_dimensions[get_column_letter(len(headers))].hidden = True
+
     check = wb.create_sheet("Cek File")
     check.append(
-        [
-            "Recording ID",
-            "Recording",
-            "Status",
-            "Trust",
-            "QR Status",
-            "Segment",
-            "Durasi (s)",
-            "Masalah / Alasan",
-        ]
+        ["Recording ID", "Recording", "Status", "Trust", "QR Status", "Segment",
+         "Durasi (s)", "Ukuran (bytes)", "Masalah / Alasan"]
     )
     for rec in report.recordings:
         check.append(
@@ -361,75 +394,49 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
                 rec.qr.status.value if rec.qr else "NOT_SCANNED",
                 len(rec.segments),
                 rec.actual_duration_s,
+                sum(max(0, int(segment.video.size_bytes)) for segment in rec.segments),
                 " | ".join(rec.reasons),
             ]
         )
+
     audit = wb.create_sheet("Scan Audit")
     audit.append(
-        [
-            "Path",
-            "Kind",
-            "Device",
-            "Object ID",
-            "Capture Date",
-            "MKV",
-            "CSV IMU",
-            "Missing Files",
-            "Warnings",
-            "Sync OK",
-            "Restart Count",
-        ]
+        ["Path", "Kind", "Device", "Object ID", "Capture Date", "MKV", "CSV IMU",
+         "Missing Files", "Warnings", "Sync OK", "Restart Count"]
     )
     for unit in report.units:
         audit.append(
             [
-                unit.relative_path,
-                unit.kind.value,
-                unit.device_id,
-                unit.object_id,
-                unit.capture_date,
-                len(unit.mkv_paths),
-                len(unit.csv_timelines),
-                " | ".join(unit.missing_files),
-                " | ".join(unit.warnings),
-                unit.sync_ok,
-                unit.restart_count,
+                unit.relative_path, unit.kind.value, unit.device_id, unit.object_id,
+                unit.capture_date, len(unit.mkv_paths), len(unit.csv_timelines),
+                " | ".join(unit.missing_files), " | ".join(unit.warnings),
+                unit.sync_ok, unit.restart_count,
             ]
         )
+
     recon = wb.create_sheet("Rekonsiliasi")
     recon.append(
-        [
-            "Recording ID",
-            "Folder",
-            "Status Scan",
-            "QR Token",
-            "Sender Authentication",
-            "QR First Seen (s)",
-            "Payload Recorder",
-            "Payload Device",
-            "Hasil Korelasi",
-            "Catatan",
-        ]
+        ["Recording ID", "Folder", "Status Scan", "QR Token", "QR Encryption",
+         "QR First Seen (s)", "Payload Recorder", "Payload Device", "Payload Location",
+         "Payload Shift", "Payload Activity", "Hasil Korelasi", "Catatan"]
     )
     for rec in report.recordings:
         qr = rec.qr
         payload = qr.payload if qr and isinstance(qr.payload, dict) else {}
         recon.append(
             [
-                rec.recording_id,
-                "; ".join(rec.unit_paths),
-                rec.status.value,
+                rec.recording_id, "; ".join(rec.unit_paths), rec.status.value,
                 qr.token_id if qr else "",
-                "Enkripsi MQ1" if qr and qr.status is ResultStatus.QR_DECRYPTED else "-",
+                "MQ1 encrypted" if qr and qr.status is ResultStatus.QR_DECRYPTED else "-",
                 qr.time_s if qr else None,
-                payload.get("r", ""),
-                payload.get("dn", ""),
-                "Perlu review"
-                if rec.status is not ResultStatus.VERIFIED or rec.trust_level < 3
+                payload.get("c", ""), payload.get("d", ""), payload.get("l", ""),
+                payload.get("ss", ""), payload.get("t", ""),
+                "Perlu review" if rec.status is not ResultStatus.VERIFIED or rec.trust_level < 3
                 else "Terverifikasi",
                 " | ".join(qr.reasons) if qr else "QR belum diverifikasi",
             ]
         )
+
     for sheet in wb.worksheets:
         sheet.freeze_panes = "A2"
         sheet.auto_filter.ref = sheet.dimensions
@@ -444,11 +451,14 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
             )
             sheet.column_dimensions[letter].width = width
         sheet.sheet_view.showGridLines = False
+
     wb.properties.creator = CREDIT
     temp = destination.with_name(destination.name + ".tmp")
     try:
         wb.save(temp)
         os.replace(temp, destination)
+    except PermissionError:
+        raise PermissionError(f"File Excel sedang dibuka. Tutup dulu lalu export ulang:\n{destination}")
     finally:
         if temp.exists():
             temp.unlink()
