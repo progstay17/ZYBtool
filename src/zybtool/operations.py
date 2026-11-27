@@ -432,7 +432,8 @@ def export_excel(report: VerificationReport, path: Path | str) -> Path:
                 rec.qr.status.value if rec.qr else "NOT_SCANNED",
                 len(rec.segments),
                 None if rec.actual_duration_s is None else rec.actual_duration_s / 86_400,
-                _folder_size_bytes(source, rec.unit_paths) / 1_000_000_000,
+                sum(unit_sizes.get(unit_path, 0) for unit_path in set(rec.unit_paths))
+                / 1_000_000_000,
                 " | ".join(rec.reasons),
             ]
         )
