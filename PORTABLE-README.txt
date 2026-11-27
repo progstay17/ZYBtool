@@ -1,5 +1,7 @@
 # ZYBTool Portable
 
+Version: 0.2.19
+
 1. Extract the complete ZYBTool folder.
 2. Double-click ZYBTool.exe.
 3. Open Overview to start. In Settings, generate or import the decoder keypair.
