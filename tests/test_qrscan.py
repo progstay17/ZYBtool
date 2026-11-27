@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import av
@@ -158,15 +159,13 @@ def test_qr_verification_does_not_scan_later_segments(tmp_path: Path, monkeypatc
         pts_monotonic=True,
         keyframes=1,
     )
-    recording = RecordingResult(
-        **{
-            **recording.__dict__,
-            "segments": (*recording.segments, Segment("record", "stereo", second_video)),
-        }
+    recording = replace(
+        recording,
+        segments=(*recording.segments, Segment("record", "stereo", second_video)),
     )
     calls: list[str] = []
 
-    def fake_scan(path: Path, meta_path: Path) -> QRScanResult:
+    def fake_scan(path: Path, meta_path: Path, **kwargs: object) -> QRScanResult:
         calls.append(str(path))
         return QRScanResult((), 0, {})
 
