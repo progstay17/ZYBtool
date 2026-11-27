@@ -29,8 +29,17 @@ def _report(
         if decrypted
         else None
     )
+    recording_root = source / "recording_primary_demo"
+    total_size_bytes = (
+        sum(path.stat(follow_symlinks=False).st_size for path in recording_root.rglob("*") if path.is_file())
+        if recording_root.is_dir()
+        else 0
+    )
     facts = SessionFacts(
-        relative_path="recording_primary_demo", kind=UnitKind.FINAL, capture_date="2026-11-25"
+        relative_path="recording_primary_demo",
+        kind=UnitKind.FINAL,
+        capture_date="2026-11-25",
+        total_size_bytes=total_size_bytes,
     )
     recording = RecordingResult(
         recording_id="0123456789abcdef0123456789abcdef",
@@ -340,6 +349,11 @@ def test_excel_groups_by_qr_ss_and_counts_each_recording_once(tmp_path: Path) ->
                 relative_path="recording_primary_second",
                 kind=UnitKind.FINAL,
                 capture_date="2026-11-25",
+                total_size_bytes=sum(
+                    path.stat(follow_symlinks=False).st_size
+                    for path in second_root.rglob("*")
+                    if path.is_file()
+                ),
             ),
         ),
         recordings=(first, second),
