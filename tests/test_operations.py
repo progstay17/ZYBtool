@@ -18,12 +18,19 @@ from zybtool.output import create_output_plan
 
 
 def _report(source: Path) -> VerificationReport:
+    recording_root = source / "recording_primary_demo"
+    total_size_bytes = (
+        sum(path.stat(follow_symlinks=False).st_size for path in recording_root.rglob("*") if path.is_file())
+        if recording_root.is_dir()
+        else 0
+    )
     facts = SessionFacts(
         relative_path="recording_primary_demo",
         kind=UnitKind.FINAL,
         device_id="cam-01",
         capture_date="2026-11-25",
         mkv_paths=("recording_primary_demo/stereo/stereo_000001.mkv",),
+        total_size_bytes=total_size_bytes,
     )
     recording = RecordingResult(
         recording_id="a" * 32,
