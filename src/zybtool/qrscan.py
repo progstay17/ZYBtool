@@ -58,7 +58,7 @@ def scan_video_tokens(
     meta_path: Path | str,
     *,
     start_s: float | None = None,
-    window_s: float = 30.0,
+    window_s: float = 5.0,
     sample_fps: float = 5.0,
     stop_after_votes: int = 3,
 ) -> QRScanResult:
@@ -99,7 +99,7 @@ def scan_video_tokens(
                 timestamp = float(frame.pts * frame.time_base)
                 if timestamp < start:
                     continue
-                if timestamp > stop:
+                if timestamp >= stop:
                     break
                 if timestamp + 1e-6 < next_sample:
                     continue
