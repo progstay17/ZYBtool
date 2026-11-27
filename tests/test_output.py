@@ -268,3 +268,101 @@ def test_verified_with_capture_warning_is_still_named_from_decrypted_qr(tmp_path
     assert len(plan.items) == 1
     assert plan.items[0].folder_name == "20261125_MM12_RecorderA_ZY123_S2_BedRoom"
     assert plan.items[0].named is True
+
+
+def test_excel_groups_by_qr_ss_and_counts_each_recording_once(tmp_path: Path) -> None:
+    from openpyxl import load_workbook
+    from zybtool.models import Segment, VideoEvidence
+    from zybtool.operations import export_excel
+
+    source = tmp_path / "source"
+    (source / "recording_primary_demo").mkdir(parents=True)
+    (source / "recording_primary_second").mkdir()
+    payload = {"c": "Fadhil", "d": "ZY009", "l": "MM3208", "ss": "3", "t": "Bedroom"}
+    base = _report(source, decrypted=True, payload=payload)
+    original = base.recordings[0]
+
+    def segment(path: str, size: int) -> Segment:
+        return Segment(
+            unit_path=path,
+            camera="stereo",
+            video=VideoEvidence(
+                relative_path=f"{path}/stereo/video.mkv",
+                size_bytes=size,
+                packet_count=10,
+                pts_first_s=0.0,
+                pts_last_s=9.0,
+                duration_s=10.0,
+                frame_rate=30.0,
+                pts_monotonic=True,
+                keyframes=1,
+            ),
+        )
+
+    first = RecordingResult(
+        recording_id=original.recording_id,
+        unit_paths=("recording_primary_demo",),
+        device_id=original.device_id,
+        created_epoch=original.created_epoch,
+        segments=(segment("recording_primary_demo", 100),),
+        actual_duration_s=3600.0,
+        status=original.status,
+        trust_level=original.trust_level,
+        qr=original.qr,
+    )
+    second = RecordingResult(
+        recording_id="fedcba9876543210fedcba9876543210",
+        unit_paths=("recording_primary_second",),
+        device_id=original.device_id,
+        created_epoch=original.created_epoch,
+        segments=(segment("recording_primary_second", 200),),
+        actual_duration_s=1800.0,
+        status=original.status,
+        trust_level=original.trust_level,
+        qr=original.qr,
+    )
+    report = VerificationReport(
+        source_root=str(source),
+        run_id="excel-group-test",
+        generated_at=base.generated_at,
+        units=(
+            base.units[0],
+            SessionFacts(
+                relative_path="recording_primary_second",
+                kind=UnitKind.FINAL,
+                capture_date="2026-11-25",
+            ),
+        ),
+        recordings=(first, second),
+    )
+
+    path = export_excel(report, tmp_path / "report.xlsx")
+    workbook = load_workbook(path, data_only=True)
+    sheet = workbook["ZY White"]
+    headers = [cell.value for cell in sheet[1]]
+    row = {name: sheet.cell(2, index + 1).value for index, name in enumerate(headers)}
+
+    assert sheet.max_row == 2
+    assert row["Recorder"] == "Fadhil"
+    assert row["Device ID"] == "ZY009"
+    assert row["Lokasi"] == "MM3208"
+    assert row["Shift"] == "3"
+    assert row["Aktivitas"] == "Bedroom"
+    assert row["Jumlah Sesi"] == 2
+    assert row["Durasi (jam)"] == 1.5
+    assert row["Total Data (GB)"] == 0.0000003
+    assert "Qualified" not in " ".join(str(value) for value in headers)
+    assert "Rejected" not in " ".join(str(value) for value in headers)
+    workbook.close()
+
+    workbook = load_workbook(path)
+    sheet = workbook["ZY White"]
+    qc_col = headers.index("QC") + 1
+    sheet.cell(2, qc_col, "QC OK")
+    workbook.save(path)
+    workbook.close()
+
+    export_excel(report, path)
+    workbook = load_workbook(path, data_only=True)
+    assert workbook["ZY White"].cell(2, qc_col).value == "QC OK"
+    workbook.close()
