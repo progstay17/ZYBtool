@@ -152,7 +152,8 @@ def verify_recording_qr(
     """Decrypt MQ1 tokens; payload fields are defined by the selected AITQR account profile."""
     root = Path(source_root)
     best_error: QRVerification | None = None
-    for segment in recording.segments:
+    # The QR is expected at recording start; never scan later segments for a missing anchor.
+    for segment in recording.segments[:1]:
         video_path = root / Path(segment.video.relative_path)
         meta_path = root / Path(segment.unit_path) / Path(segment.camera) / "meta.json"
         try:
